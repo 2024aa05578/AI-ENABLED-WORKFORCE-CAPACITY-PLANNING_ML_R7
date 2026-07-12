@@ -279,27 +279,6 @@ if "input_df" not in st.session_state:
     st.session_state.input_df = None
 
 
-# Safety reset if old session contains previous structure
-for region in REGIONS:
-    if region not in st.session_state.growth_parameters:
-        st.session_state.growth_parameters[region] = copy.deepcopy(
-            DEFAULT_GROWTH_PARAMETERS[region]
-        )
-
-    for product in PRODUCTS:
-        if product not in st.session_state.growth_parametersst.session_state.growth_parameters[region][product] = copy.deepcopy(
-                DEFAULT_GROWTH_PARAMETERS[region][product]
-            )
-
-        if "BAU" not in st.session_state.growth_parameters[region]st.session_state.growth_parameters[region][product]["BAU"] = (
-                DEFAULT_GROWTH_PARAMETERS[region][product]["BAU"]
-            )
-
-        if "DC" not in st.session_state.growth_parameters[region]st.session_state.growth_parameters[region][product]["DC"] = (
-                DEFAULT_GROWTH_PARAMETERS[region][product]["DC"]
-            )
-
-
 # =====================================================
 # SIDEBAR FORM
 # =====================================================
@@ -598,4 +577,56 @@ with tab4:
     st.subheader("DC Addition Requirement Table")
 
     dc_table = result.pivot_table(
-        values="DC Incremental
+        values="DC Incremental Engineers",
+        index="Product",
+        columns="Region",
+        fill_value=0,
+        aggfunc="sum",
+    )
+
+    st.dataframe(
+        add_total_row_and_column(dc_table).round(1),
+        use_container_width=True,
+    )
+
+    st.subheader("Combined BAU + DC Requirement Table")
+
+    combined_table = result.pivot_table(
+        values="Combined Required Engineers",
+        index="Product",
+        columns="Region",
+        fill_value=0,
+        aggfunc="sum",
+    )
+
+    st.dataframe(
+        add_total_row_and_column(combined_table).round(1),
+        use_container_width=True,
+    )
+
+    st.subheader("Combined Hiring Requirement Table")
+
+    hiring_table = result.pivot_table(
+        values="Combined Additional Required",
+        index="Product",
+        columns="Region",
+        fill_value=0,
+        aggfunc="sum",
+    )
+
+    st.dataframe(
+        add_total_row_and_column(hiring_table).round(1),
+        use_container_width=True,
+    )
+
+with tab5:
+    st.subheader("Download Output")
+
+    csv_output = result.to_csv(index=False).encode("utf-8")
+
+    st.download_button(
+        label="Download Workforce Planning Output",
+        data=csv_output,
+        file_name="workforce_planning_output.csv",
+        mime="text/csv",
+    )
