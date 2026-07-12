@@ -333,3 +333,299 @@ with st.sidebar.form("planning_assumptions_form"):
                     label=f"{region} {product} DC %",
                     min_value=0.0,
                     max_value=100.0,
+                    value=float(
+                        st.session_state.growth_parameters[region][product]["DC"]
+                    ),
+                    step=1.0,
+                    key=f"{clean_key(region)}_{clean_key(product)}_dc_form",
+                    label_visibility="collapsed",
+                )
+
+            updated_growth_parameters[region][product] = {
+                "BAU": bau_value,
+                "DC": dc_value,
+            }
+
+        st.markdown("---")
+
+    st.subheader("BU Wise Attrition")
+
+    updated_attrition = {}
+
+    for product in PRODUCTS:
+        updated_attrition[product] = st.number_input(
+            f"{product} Attrition %",
+            min_value=0.0,
+            max_value=30.0,
+            value=float(st.session_state.attrition_parameters[product]),
+            step=0.5,
+            key=f"{clean_key(product)}_attrition_form",
+        )
+
+    st.subheader("Workforce Productivity")
+
+    updated_productive_hours = st.number_input(
+        "Productive Hours Per Day",
+        min_value=1.0,
+        max_value=24.0,
+        value=float(st.session_state.productive_hours),
+        step=0.5,
+    )
+
+    updated_working_days = st.number_input(
+        "Working Days Per Month",
+        min_value=1,
+        max_value=31,
+        value=int(st.session_state.working_days),
+        step=1,
+    )
+
+    updated_target_utilization = st.number_input(
+        "Target Engineer Utilization %",
+        min_value=1.0,
+        max_value=100.0,
+        value=float(st.session_state.target_utilization),
+        step=1.0,
+    )
+
+    apply_assumptions = st.form_submit_button("Apply Assumptions")
+
+
+if apply_assumptions:
+    st.session_state.growth_parameters = updated_growth_parameters
+    st.session_state.attrition_parameters = updated_attrition
+    st.session_state.productive_hours = updated_productive_hours
+    st.session_state.working_days = updated_working_days
+    st.session_state.target_utilization = updated_target_utilization
+
+    st.sidebar.success("Assumptions applied.")
+
+
+# =====================================================
+# MAIN PAGE
+# =====================================================
+
+st.title("AI Enabled Workforce & Capacity Planning")
+
+st.info(
+    "Upload workforce_input.csv, update assumptions in the sidebar, "
+    "click Apply Assumptions, and review existing 2026 resources vs predicted next year requirement."
+)
+
+uploaded_file = st.file_uploader(
+    "Upload workforce_input.csv",
+    type=["csv"],
+)
+
+if uploaded_file is not None:
+    try:
+        raw_df = safe_read_csv(uploaded_file)
+        st.session_state.input_df = validate_input_data(raw_df)
+        st.success("CSV uploaded successfully.")
+
+    except Exception as error:
+        st.error("CSV upload failed. Please check file format.")
+        st.exception(error)
+        st.stop()
+
+
+if st.session_state.input_df is None:
+    st.warning("Please upload workforce_input.csv to start workforce planning.")
+    st.stop()
+
+
+df = st.session_state.input_df
+
+
+# =====================================================
+# CALCULATE WORKFORCE
+# =====================================================
+
+try:
+    result = calculate_workforce(
+        df=df,
+        growth_parameters=st.session_state.growth_parameters,
+        attrition_parameters=st.session_state.attrition_parameters,
+        productive_hours=st.session_state.productive_hours,
+        working_days=st.session_state.working_days,
+        target_utilization=st.session_state.target_utilization,
+    )
+
+except Exception as error:
+    st.error("Calculation failed. Please check workforce_model.py.")
+    st.exception(error)
+    st.stop()
+
+
+required_result_columns = [
+    "Available Engineers",
+    "BAU Required Engineers",
+    "DC Incremental Engineers",
+    "Combined Required Engineers",
+    "Combined Additional Required",
+]
+
+missing_result_columns = [
+    col for col in required_result_columns
+    if col not in result.columns
+]
+
+if missing_result_columns:
+    st.error(
+        "workforce_model.py is not updated. Missing result columns: "
+        + str(missing_result_columns)
+    )
+    st.stop()
+
+
+# =====================================================
+# DASHBOARD SUMMARY
+# =====================================================
+
+st.subheader("Dashboard Summary")
+
+total_current = df["Current_SE"].sum()
+total_available = round(result["Available Engineers"].sum(), 1)
+total_bau_required = round(result["BAU Required Engineers"].sum(), 1)
+total_dc_required = round(result["DC Incremental Engineers"].sum(), 1)
+total_combined_required = round(result["Combined Required Engineers"].sum(), 1)
+total_combined_hiring = int(result["Combined Additional Required"].sum())
+
+kpi1, kpi2, kpi3, kpi4, kpi5, kpi6 = st.columns(6)
+
+kpi1.metric("Existing 2026 SE", total_current)
+kpi2.metric("After Attrition", total_available)
+kpi3.metric("BAU Required SE", total_bau_required)
+kpi4.metric("DC Addl. SE", total_dc_required)
+kpi5.metric("Next Year Required SE", total_combined_required)
+kpi6.metric("Additional Required", total_combined_hiring)
+
+
+# =====================================================
+# VISUAL DASHBOARD
+# =====================================================
+
+st.markdown("---")
+st.subheader("Visual Dashboard")
+
+chart_col1, chart_col2 = st.columns(2)
+
+with chart_col1:
+    st.markdown("#### Next Year Required SE by Product")
+    product_required = result.groupby("Product")["Combined Required Engineers"].sum()
+    st.bar_chart(product_required)
+
+with chart_col2:
+    st.markdown("#### Next Year Required SE by Region")
+    region_required = result.groupby("Region")["Combined Required Engineers"].sum()
+    st.bar_chart(region_required)
+
+chart_col3, chart_col4 = st.columns(2)
+
+with chart_col3:
+    st.markdown("#### Additional Requirement by Product")
+    product_hiring = result.groupby("Product")["Combined Additional Required"].sum()
+    st.bar_chart(product_hiring)
+
+with chart_col4:
+    st.markdown("#### Additional Requirement by Region")
+    region_hiring = result.groupby("Region")["Combined Additional Required"].sum()
+    st.bar_chart(region_hiring)
+
+
+# =====================================================
+# DETAIL TABS
+# =====================================================
+
+tab1, tab2, tab3, tab4, tab5 = st.tabs(
+    [
+        "Input Data",
+        "Full Results",
+        "BU Requirement Comparison",
+        "DC and Combined",
+        "Download",
+    ]
+)
+
+with tab1:
+    st.subheader("Uploaded Input Data")
+    st.dataframe(df, use_container_width=True)
+
+with tab2:
+    st.subheader("Workforce Planning Results")
+    st.dataframe(result, use_container_width=True)
+
+with tab3:
+    st.subheader("BU Requirement Comparison")
+
+    st.info(
+        "This table compares existing 2026 resources with predicted next year requirement."
+    )
+
+    bu_comparison = build_bu_requirement_comparison(
+        df=df,
+        result=result,
+    )
+
+    st.dataframe(
+        bu_comparison,
+        use_container_width=True,
+    )
+
+with tab4:
+    st.subheader("DC Addition Requirement Table")
+
+    dc_table = result.pivot_table(
+        values="DC Incremental Engineers",
+        index="Product",
+        columns="Region",
+        fill_value=0,
+        aggfunc="sum",
+    )
+
+    st.dataframe(
+        add_total_row_and_column(dc_table).round(1),
+        use_container_width=True,
+    )
+
+    st.subheader("Combined BAU + DC Requirement Table")
+
+    combined_table = result.pivot_table(
+        values="Combined Required Engineers",
+        index="Product",
+        columns="Region",
+        fill_value=0,
+        aggfunc="sum",
+    )
+
+    st.dataframe(
+        add_total_row_and_column(combined_table).round(1),
+        use_container_width=True,
+    )
+
+    st.subheader("Combined Hiring Requirement Table")
+
+    hiring_table = result.pivot_table(
+        values="Combined Additional Required",
+        index="Product",
+        columns="Region",
+        fill_value=0,
+        aggfunc="sum",
+    )
+
+    st.dataframe(
+        add_total_row_and_column(hiring_table).round(1),
+        use_container_width=True,
+    )
+
+with tab5:
+    st.subheader("Download Output")
+
+    csv_output = result.to_csv(index=False).encode("utf-8")
+
+    st.download_button(
+        label="Download Workforce Planning Output",
+        data=csv_output,
+        file_name="workforce_planning_output.csv",
+        mime="text/csv",
+    )
