@@ -78,10 +78,6 @@ DEFAULT_ATTRITION = {
 }
 
 
-# =====================================================
-# HELPER FUNCTIONS
-# =====================================================
-
 def clean_key(text):
     return (
         str(text)
@@ -100,6 +96,46 @@ def add_total_row_and_column(matrix):
     total_row.index = ["Total"]
 
     return pd.concat([matrix, total_row])
+
+
+def ensure_growth_structure():
+    """
+    This avoids errors if Streamlit session still has an older growth structure.
+    """
+    if "growth_parameters" not in st.session_state:
+        st.session_state.growth_parameters = copy.deepcopy(DEFAULT_GROWTH_PARAMETERS)
+
+    for region in REGIONS:
+        if region not in st.session_state.growth_parameters:
+            st.session_state.growth_parameters[region] = copy.deepcopy(
+                DEFAULT_GROWTH_PARAMETERS[region]
+            )
+
+        if not isinstance(st.session_state.growth_parameters[region], dict):
+            st.session_state.growth_parameters[region] = copy.deepcopy(
+                DEFAULT_GROWTH_PARAMETERS[region]
+            )
+
+        for product in PRODUCTS:
+            if product not in st.session_state.growth_parametersst.session_state.growth_parameters[region][product] = copy.deepcopy(
+                    DEFAULT_GROWTH_PARAMETERS[region][product]
+                )
+
+            if not isinstance(
+                st.session_state.growth_parameters[region][product],
+                dict,
+            ):
+                st.session_state.growth_parameters[region][product] = copy.deepcopy(
+                    DEFAULT_GROWTH_PARAMETERS[region][product]
+                )
+
+            if "BAU" not in st.session_state.growth_parameters[region]st.session_state.growth_parameters[region][product]["BAU"] = (
+                    DEFAULT_GROWTH_PARAMETERS[region][product]["BAU"]
+                )
+
+            if "DC" not in st.session_state.growth_parameters[region]st.session_state.growth_parameters[region][product]["DC"] = (
+                    DEFAULT_GROWTH_PARAMETERS[region][product]["DC"]
+                )
 
 
 def build_bu_requirement_comparison(df, result):
@@ -340,8 +376,14 @@ def show_bar_chart_with_values(data, x_col, y_col, title, color_col=None):
 if "growth_parameters" not in st.session_state:
     st.session_state.growth_parameters = copy.deepcopy(DEFAULT_GROWTH_PARAMETERS)
 
+ensure_growth_structure()
+
 if "attrition_parameters" not in st.session_state:
     st.session_state.attrition_parameters = copy.deepcopy(DEFAULT_ATTRITION)
+
+for product in PRODUCTS:
+    if product not in st.session_state.attrition_parameters:
+        st.session_state.attrition_parameters[product] = DEFAULT_ATTRITION[product]
 
 if "productive_hours" not in st.session_state:
     st.session_state.productive_hours = 7.0
@@ -354,6 +396,15 @@ if "target_utilization" not in st.session_state:
 
 if "input_df" not in st.session_state:
     st.session_state.input_df = None
+
+if "result_df" not in st.session_state:
+    st.session_state.result_df = None
+
+if "needs_recalc" not in st.session_state:
+    st.session_state.needs_recalc = False
+
+if "uploaded_file_id" not in st.session_state:
+    st.session_state.uploaded_file_id = None
 
 
 # =====================================================
@@ -476,7 +527,9 @@ if apply_assumptions:
     st.session_state.working_days = updated_working_days
     st.session_state.target_utilization = updated_target_utilization
 
-    st.sidebar.success("Assumptions applied.")
+    st.session_state.needs_recalc = True
+
+    st.sidebar.success("Assumptions applied. Dashboard will refresh.")
 
 
 # =====================================================
@@ -496,15 +549,20 @@ uploaded_file = st.file_uploader(
 )
 
 if uploaded_file is not None:
-    try:
-        raw_df = safe_read_csv(uploaded_file)
-        st.session_state.input_df = validate_input_data(raw_df)
-        st.success("CSV uploaded successfully.")
+    current_file_id = f"{uploaded_file.name}_{uploaded_file.size}"
 
-    except Exception as error:
-        st.error("CSV upload failed. Please check file format.")
-        st.exception(error)
-        st.stop()
+    if current_file_id != st.session_state.uploaded_file_id:
+        try:
+            raw_df = safe_read_csv(uploaded_file)
+            st.session_state.input_df = validate_input_data(raw_df)
+            st.session_state.uploaded_file_id = current_file_id
+            st.session_state.needs_recalc = True
+            st.success("CSV uploaded successfully.")
+
+        except Exception as error:
+            st.error("CSV upload failed. Please check file format.")
+            st.exception(error)
+            st.stop()
 
 
 if st.session_state.input_df is None:
@@ -516,23 +574,30 @@ df = st.session_state.input_df
 
 
 # =====================================================
-# CALCULATE WORKFORCE
+# CALCULATE WORKFORCE ONLY WHEN NEEDED
 # =====================================================
 
-try:
-    result = calculate_workforce(
-        df=df,
-        growth_parameters=st.session_state.growth_parameters,
-        attrition_parameters=st.session_state.attrition_parameters,
-        productive_hours=st.session_state.productive_hours,
-        working_days=st.session_state.working_days,
-        target_utilization=st.session_state.target_utilization,
-    )
+if st.session_state.needs_recalc or st.session_state.result_df is None:
+    try:
+        result = calculate_workforce(
+            df=df,
+            growth_parameters=st.session_state.growth_parameters,
+            attrition_parameters=st.session_state.attrition_parameters,
+            productive_hours=st.session_state.productive_hours,
+            working_days=st.session_state.working_days,
+            target_utilization=st.session_state.target_utilization,
+        )
 
-except Exception as error:
-    st.error("Calculation failed. Please check workforce_model.py.")
-    st.exception(error)
-    st.stop()
+        st.session_state.result_df = result
+        st.session_state.needs_recalc = False
+
+    except Exception as error:
+        st.error("Calculation failed. Please check workforce_model.py.")
+        st.exception(error)
+        st.stop()
+
+else:
+    result = st.session_state.result_df
 
 
 required_result_columns = [
