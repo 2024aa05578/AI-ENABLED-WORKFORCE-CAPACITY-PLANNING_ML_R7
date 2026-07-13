@@ -8,14 +8,63 @@ import streamlit as st
 
 from workforce_model import calculate_workforce
 
+
 st.set_page_config(
     page_title="AI Enabled Workforce & Capacity Planning",
     page_icon="🚀",
     layout="wide",
 )
 
+
+# =====================================================
+# SIDEBAR WIDTH AND FONT FIX
+# =====================================================
+
+st.markdown(
+    """
+    <style>
+    section[data-testid="stSidebar"] {
+        width: 540px !important;
+        min-width: 540px !important;
+        max-width: 540px !important;
+    }
+
+    section[data-testid="stSidebar"] > div {
+        width: 540px !important;
+        min-width: 540px !important;
+        max-width: 540px !important;
+    }
+
+    section[data-testid="stSidebar"] label {
+        font-size: 13px !important;
+    }
+
+    section[data-testid="stSidebar"] p {
+        font-size: 13px !important;
+    }
+
+    section[data-testid="stSidebar"] div {
+        font-size: 13px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+
+# =====================================================
+# MASTER DATA
+# =====================================================
+
 REGIONS = ["North", "West", "South", "East"]
-PRODUCTS = ["UPS", "Cooling", "Power Products", "Power System", "Industrial Automation"]
+
+PRODUCTS = [
+    "UPS",
+    "Cooling",
+    "Power Products",
+    "Power System",
+    "Industrial Automation",
+]
 
 PRODUCT_ALIASES = {
     "Power Product": "Power Products",
@@ -26,6 +75,11 @@ PRODUCT_ALIASES = {
     "UPS": "UPS",
     "Cooling": "Cooling",
 }
+
+
+# =====================================================
+# DEFAULT PARAMETERS
+# =====================================================
 
 DEFAULT_GROWTH_PARAMETERS = {
     "North": {
@@ -66,8 +120,12 @@ DEFAULT_ATTRITION = {
     "Industrial Automation": 8.0,
 }
 
-APP_SCHEMA_VERSION = "v6_all_sidebar_data_editor_stable"
+APP_SCHEMA_VERSION = "v7_sidebar_width_frozen_all_data_editor"
 
+
+# =====================================================
+# SESSION INITIALIZATION
+# =====================================================
 
 def init_state():
     if st.session_state.get("schema_version") != APP_SCHEMA_VERSION:
@@ -82,6 +140,10 @@ def init_state():
         st.session_state.needs_recalc = False
         st.session_state.uploaded_file_id = None
 
+
+# =====================================================
+# CONVERSION HELPERS
+# =====================================================
 
 def growth_dict_to_df(growth_parameters):
     rows = []
@@ -165,6 +227,10 @@ def productivity_df_to_values(productivity_df):
 
     return productive_hours, working_days, target_utilization
 
+
+# =====================================================
+# GENERAL HELPERS
+# =====================================================
 
 def add_total_row_and_column(matrix):
     matrix = matrix.copy()
@@ -432,17 +498,27 @@ with st.sidebar.form("planning_assumptions_form"):
         use_container_width=True,
         disabled=["Region", "Product"],
         column_config={
+            "Region": st.column_config.TextColumn(
+                "Region",
+                width="small",
+            ),
+            "Product": st.column_config.TextColumn(
+                "Product",
+                width="medium",
+            ),
             "BAU %": st.column_config.NumberColumn(
                 "BAU %",
                 min_value=0.0,
                 max_value=100.0,
                 step=1.0,
+                width="small",
             ),
             "DC %": st.column_config.NumberColumn(
                 "DC %",
                 min_value=0.0,
                 max_value=100.0,
                 step=1.0,
+                width="small",
             ),
         },
         key="growth_data_editor",
@@ -456,11 +532,16 @@ with st.sidebar.form("planning_assumptions_form"):
         use_container_width=True,
         disabled=["Product"],
         column_config={
+            "Product": st.column_config.TextColumn(
+                "Product",
+                width="medium",
+            ),
             "Attrition %": st.column_config.NumberColumn(
                 "Attrition %",
                 min_value=0.0,
                 max_value=30.0,
                 step=0.5,
+                width="small",
             ),
         },
         key="attrition_data_editor",
@@ -474,22 +555,25 @@ with st.sidebar.form("planning_assumptions_form"):
         use_container_width=True,
         column_config={
             "Productive Hours Per Day": st.column_config.NumberColumn(
-                "Productive Hours Per Day",
+                "Productive Hrs/Day",
                 min_value=1.0,
                 max_value=24.0,
                 step=0.5,
+                width="medium",
             ),
             "Working Days Per Month": st.column_config.NumberColumn(
-                "Working Days Per Month",
+                "Days/Month",
                 min_value=1,
                 max_value=31,
                 step=1,
+                width="small",
             ),
             "Target Utilization %": st.column_config.NumberColumn(
-                "Target Utilization %",
+                "Utilization %",
                 min_value=1.0,
                 max_value=100.0,
                 step=1.0,
+                width="small",
             ),
         },
         key="productivity_data_editor",
