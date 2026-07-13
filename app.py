@@ -8,13 +8,11 @@ import streamlit as st
 
 from workforce_model import calculate_workforce
 
-
 st.set_page_config(
     page_title="AI Enabled Workforce & Capacity Planning",
     page_icon="🚀",
     layout="wide",
 )
-
 
 REGIONS = ["North", "West", "South", "East"]
 PRODUCTS = ["UPS", "Cooling", "Power Products", "Power System", "Industrial Automation"]
@@ -68,7 +66,7 @@ DEFAULT_ATTRITION = {
     "Industrial Automation": 8.0,
 }
 
-APP_SCHEMA_VERSION = "v5_growth_data_editor_stable"
+APP_SCHEMA_VERSION = "v6_all_sidebar_data_editor_stable"
 
 
 def init_state():
@@ -144,6 +142,28 @@ def attrition_df_to_dict(attrition_df):
             attrition_parameters[product] = float(row["Attrition %"])
 
     return attrition_parameters
+
+
+def productivity_to_df():
+    return pd.DataFrame(
+        [
+            {
+                "Productive Hours Per Day": float(st.session_state.productive_hours),
+                "Working Days Per Month": int(st.session_state.working_days),
+                "Target Utilization %": float(st.session_state.target_utilization),
+            }
+        ]
+    )
+
+
+def productivity_df_to_values(productivity_df):
+    row = productivity_df.iloc[0]
+
+    productive_hours = float(row["Productive Hours Per Day"])
+    working_days = int(row["Working Days Per Month"])
+    target_utilization = float(row["Target Utilization %"])
+
+    return productive_hours, working_days, target_utilization
 
 
 def add_total_row_and_column(matrix):
@@ -406,12 +426,8 @@ st.sidebar.info(
 with st.sidebar.form("planning_assumptions_form"):
     st.subheader("Region and Product Wise Growth")
 
-    growth_input_df = growth_dict_to_df(
-        st.session_state.growth_parameters
-    )
-
     edited_growth_df = st.data_editor(
-        growth_input_df,
+        growth_dict_to_df(st.session_state.growth_parameters),
         hide_index=True,
         use_container_width=True,
         disabled=["Region", "Product"],
@@ -434,12 +450,8 @@ with st.sidebar.form("planning_assumptions_form"):
 
     st.subheader("BU Wise Attrition")
 
-    attrition_input_df = attrition_dict_to_df(
-        st.session_state.attrition_parameters
-    )
-
     edited_attrition_df = st.data_editor(
-        attrition_input_df,
+        attrition_dict_to_df(st.session_state.attrition_parameters),
         hide_index=True,
         use_container_width=True,
         disabled=["Product"],
@@ -456,28 +468,31 @@ with st.sidebar.form("planning_assumptions_form"):
 
     st.subheader("Workforce Productivity")
 
-    updated_productive_hours = st.number_input(
-        "Productive Hours Per Day",
-        min_value=1.0,
-        max_value=24.0,
-        value=float(st.session_state.productive_hours),
-        step=0.5,
-    )
-
-    updated_working_days = st.number_input(
-        "Working Days Per Month",
-        min_value=1,
-        max_value=31,
-        value=int(st.session_state.working_days),
-        step=1,
-    )
-
-    updated_target_utilization = st.number_input(
-        "Target Engineer Utilization %",
-        min_value=1.0,
-        max_value=100.0,
-        value=float(st.session_state.target_utilization),
-        step=1.0,
+    edited_productivity_df = st.data_editor(
+        productivity_to_df(),
+        hide_index=True,
+        use_container_width=True,
+        column_config={
+            "Productive Hours Per Day": st.column_config.NumberColumn(
+                "Productive Hours Per Day",
+                min_value=1.0,
+                max_value=24.0,
+                step=0.5,
+            ),
+            "Working Days Per Month": st.column_config.NumberColumn(
+                "Working Days Per Month",
+                min_value=1,
+                max_value=31,
+                step=1,
+            ),
+            "Target Utilization %": st.column_config.NumberColumn(
+                "Target Utilization %",
+                min_value=1.0,
+                max_value=100.0,
+                step=1.0,
+            ),
+        },
+        key="productivity_data_editor",
     )
 
     apply_assumptions = st.form_submit_button("Apply Assumptions")
@@ -492,9 +507,13 @@ if apply_assumptions:
         edited_attrition_df
     )
 
-    st.session_state.productive_hours = updated_productive_hours
-    st.session_state.working_days = updated_working_days
-    st.session_state.target_utilization = updated_target_utilization
+    productive_hours, working_days, target_utilization = productivity_df_to_values(
+        edited_productivity_df
+    )
+
+    st.session_state.productive_hours = productive_hours
+    st.session_state.working_days = working_days
+    st.session_state.target_utilization = target_utilization
     st.session_state.needs_recalc = True
 
     st.sidebar.success("Assumptions applied. Dashboard will refresh.")
