@@ -100,9 +100,13 @@ def add_total_row_and_column(matrix):
 
 def ensure_growth_structure():
     """
-    This avoids errors if Streamlit session still has an older growth structure.
+    Ensures session state has the latest region-product growth structure.
+    This prevents errors when Streamlit cache/session still contains old data.
     """
     if "growth_parameters" not in st.session_state:
+        st.session_state.growth_parameters = copy.deepcopy(DEFAULT_GROWTH_PARAMETERS)
+
+    if not isinstance(st.session_state.growth_parameters, dict):
         st.session_state.growth_parameters = copy.deepcopy(DEFAULT_GROWTH_PARAMETERS)
 
     for region in REGIONS:
