@@ -8,13 +8,18 @@ import streamlit as st
 
 from workforce_model import calculate_workforce
 
+
 st.set_page_config(
     page_title="AI Enabled Workforce & Capacity Planning",
     page_icon="🚀",
     layout="wide",
 )
 
-# Compact fixed sidebar
+
+# =====================================================
+# COMPACT FIXED SIDEBAR
+# =====================================================
+
 st.markdown(
     """
     <style>
@@ -23,6 +28,7 @@ st.markdown(
         min-width: 430px !important;
         max-width: 430px !important;
     }
+
     section[data-testid="stSidebar"] > div {
         width: 430px !important;
         min-width: 430px !important;
@@ -30,10 +36,12 @@ st.markdown(
         padding-left: 8px !important;
         padding-right: 8px !important;
     }
+
     div[data-testid="stSidebarContent"] {
         width: 430px !important;
         max-width: 430px !important;
     }
+
     section[data-testid="stSidebar"] h1,
     section[data-testid="stSidebar"] h2,
     section[data-testid="stSidebar"] h3 {
@@ -41,17 +49,20 @@ st.markdown(
         margin-top: 6px !important;
         margin-bottom: 4px !important;
     }
+
     section[data-testid="stSidebar"] p,
     section[data-testid="stSidebar"] label,
     section[data-testid="stSidebar"] div {
         font-size: 10px !important;
         line-height: 1.15 !important;
     }
+
     section[data-testid="stSidebar"] button {
         font-size: 10px !important;
         padding-top: 4px !important;
         padding-bottom: 4px !important;
     }
+
     section[data-testid="stSidebar"] .stAlert {
         font-size: 10px !important;
     }
@@ -60,8 +71,20 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+
+# =====================================================
+# MASTER DATA
+# =====================================================
+
 REGIONS = ["North", "West", "South", "East"]
-PRODUCTS = ["UPS", "Cooling", "Power Products", "Power System", "Industrial Automation"]
+
+PRODUCTS = [
+    "UPS",
+    "Cooling",
+    "Power Products",
+    "Power System",
+    "Industrial Automation",
+]
 
 PRODUCT_ALIASES = {
     "Power Product": "Power Products",
@@ -71,17 +94,6 @@ PRODUCT_ALIASES = {
     "Industiral Automation": "Industrial Automation",
     "UPS": "UPS",
     "Cooling": "Cooling",
-}
-
-REGION_DISPLAY = {
-    "North": "N",
-    "West": "W",
-    "South": "S",
-    "East": "E",
-}
-
-REGION_REVERSE_DISPLAY = {
-    value: key for key, value in REGION_DISPLAY.items()
 }
 
 PRODUCT_DISPLAY = {
@@ -95,6 +107,11 @@ PRODUCT_DISPLAY = {
 PRODUCT_REVERSE_DISPLAY = {
     value: key for key, value in PRODUCT_DISPLAY.items()
 }
+
+
+# =====================================================
+# DEFAULT PARAMETERS
+# =====================================================
 
 DEFAULT_GROWTH_PARAMETERS = {
     "North": {
@@ -135,8 +152,12 @@ DEFAULT_ATTRITION = {
     "Industrial Automation": 8.0,
 }
 
-APP_SCHEMA_VERSION = "v9_compact_product_names_sidebar"
+APP_SCHEMA_VERSION = "v10_region_sections_no_region_column"
 
+
+# =====================================================
+# SESSION INITIALIZATION
+# =====================================================
 
 def init_state():
     if st.session_state.get("schema_version") != APP_SCHEMA_VERSION:
@@ -152,40 +173,40 @@ def init_state():
         st.session_state.uploaded_file_id = None
 
 
-def growth_dict_to_df(growth_parameters):
+# =====================================================
+# SIDEBAR TABLE CONVERSION HELPERS
+# =====================================================
+
+def growth_region_to_df(growth_parameters, region):
     rows = []
 
-    for region in REGIONS:
-        for product in PRODUCTS:
-            params = growth_parameters[region][product]
+    for product in PRODUCTS:
+        params = growth_parameters[region][product]
 
-            rows.append(
-                {
-                    "R": REGION_DISPLAY[region],
-                    "Product": PRODUCT_DISPLAY[product],
-                    "BAU": float(params["BAU"]),
-                    "DC": float(params["DC"]),
-                }
-            )
+        rows.append(
+            {
+                "Product": PRODUCT_DISPLAY[product],
+                "BAU": float(params["BAU"]),
+                "DC": float(params["DC"]),
+            }
+        )
 
     return pd.DataFrame(rows)
 
 
-def growth_df_to_dict(growth_df):
+def growth_region_dfs_to_dict(edited_growth_dfs):
     growth_parameters = copy.deepcopy(DEFAULT_GROWTH_PARAMETERS)
 
-    for _, row in growth_df.iterrows():
-        region_label = str(row["R"]).strip()
-        product_label = str(row["Product"]).strip()
+    for region, growth_df in edited_growth_dfs.items():
+        for _, row in growth_df.iterrows():
+            product_label = str(row["Product"]).strip()
+            product = PRODUCT_REVERSE_DISPLAY.get(product_label)
 
-        region = REGION_REVERSE_DISPLAY.get(region_label)
-        product = PRODUCT_REVERSE_DISPLAY.get(product_label)
-
-        if region in REGIONS and product in PRODUCTS:
-            growth_parameters[region][product] = {
-                "BAU": float(row["BAU"]),
-                "DC": float(row["DC"]),
-            }
+            if product in PRODUCTS:
+                growth_parameters[region][product] = {
+                    "BAU": float(row["BAU"]),
+                    "DC": float(row["DC"]),
+                }
 
     return growth_parameters
 
@@ -238,6 +259,10 @@ def productivity_df_to_values(productivity_df):
 
     return productive_hours, working_days, target_utilization
 
+
+# =====================================================
+# GENERAL HELPERS
+# =====================================================
 
 def add_total_row_and_column(matrix):
     matrix = matrix.copy()
@@ -478,7 +503,16 @@ def show_bar_chart_with_values(data, x_col, y_col, title, color_col=None):
     )
 
 
+# =====================================================
+# SESSION STATE INITIALIZATION
+# =====================================================
+
 init_state()
+
+
+# =====================================================
+# SIDEBAR FORM
+# =====================================================
 
 st.sidebar.header("Planning Assumptions")
 
@@ -489,38 +523,44 @@ st.sidebar.info(
 with st.sidebar.form("planning_assumptions_form"):
     st.subheader("Region and Product Wise Growth")
 
-    edited_growth_df = st.data_editor(
-        growth_dict_to_df(st.session_state.growth_parameters),
-        hide_index=True,
-        use_container_width=True,
-        disabled=["R", "Product"],
-        height=430,
-        column_config={
-            "R": st.column_config.TextColumn(
-                "R",
-                width="small",
+    edited_growth_dfs = {}
+
+    for region in REGIONS:
+        st.markdown(f"**{region} Growth**")
+
+        edited_growth_dfs[region] = st.data_editor(
+            growth_region_to_df(
+                st.session_state.growth_parameters,
+                region,
             ),
-            "Product": st.column_config.TextColumn(
-                "Product",
-                width="small",
-            ),
-            "BAU": st.column_config.NumberColumn(
-                "BAU",
-                min_value=0.0,
-                max_value=100.0,
-                step=1.0,
-                width="small",
-            ),
-            "DC": st.column_config.NumberColumn(
-                "DC",
-                min_value=0.0,
-                max_value=100.0,
-                step=1.0,
-                width="small",
-            ),
-        },
-        key="growth_data_editor",
-    )
+            hide_index=True,
+            use_container_width=True,
+            disabled=["Product"],
+            height=205,
+            column_config={
+                "Product": st.column_config.TextColumn(
+                    "Product",
+                    width="medium",
+                ),
+                "BAU": st.column_config.NumberColumn(
+                    "BAU",
+                    min_value=0.0,
+                    max_value=100.0,
+                    step=1.0,
+                    width="small",
+                ),
+                "DC": st.column_config.NumberColumn(
+                    "DC",
+                    min_value=0.0,
+                    max_value=100.0,
+                    step=1.0,
+                    width="small",
+                ),
+            },
+            key=f"growth_data_editor_{region.lower()}",
+        )
+
+        st.markdown("---")
 
     st.subheader("BU Wise Attrition")
 
@@ -583,8 +623,8 @@ with st.sidebar.form("planning_assumptions_form"):
 
 
 if apply_assumptions:
-    st.session_state.growth_parameters = growth_df_to_dict(
-        edited_growth_df
+    st.session_state.growth_parameters = growth_region_dfs_to_dict(
+        edited_growth_dfs
     )
 
     st.session_state.attrition_parameters = attrition_df_to_dict(
@@ -602,6 +642,10 @@ if apply_assumptions:
 
     st.sidebar.success("Assumptions applied. Dashboard will refresh.")
 
+
+# =====================================================
+# MAIN PAGE
+# =====================================================
 
 st.title("AI Enabled Workforce & Capacity Planning")
 
@@ -639,6 +683,10 @@ if st.session_state.input_df is None:
 
 df = st.session_state.input_df
 
+
+# =====================================================
+# CALCULATE WORKFORCE ONLY WHEN NEEDED
+# =====================================================
 
 if st.session_state.needs_recalc or st.session_state.result_df is None:
     try:
@@ -684,6 +732,10 @@ if missing_result_columns:
     st.stop()
 
 
+# =====================================================
+# DASHBOARD SUMMARY
+# =====================================================
+
 st.subheader("Dashboard Summary")
 
 total_current = df["Current_SE"].sum()
@@ -702,6 +754,10 @@ kpi4.metric("DC Addl. SE", total_dc_required)
 kpi5.metric("Next Year Required SE", total_combined_required)
 kpi6.metric("Additional Required", total_combined_hiring)
 
+
+# =====================================================
+# VISUAL DASHBOARD
+# =====================================================
 
 st.markdown("---")
 st.subheader("Visual Dashboard")
@@ -770,6 +826,10 @@ with chart_col4:
         "Region",
     )
 
+
+# =====================================================
+# DETAIL TABS
+# =====================================================
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs(
     [
