@@ -8,92 +8,60 @@ import streamlit as st
 
 from workforce_model import calculate_workforce
 
-
 st.set_page_config(
     page_title="AI Enabled Workforce & Capacity Planning",
     page_icon="🚀",
     layout="wide",
 )
 
-
-# =====================================================
-# SIDEBAR WIDTH AND FONT FIX
-# =====================================================
-
+# Compact fixed sidebar
 st.markdown(
     """
     <style>
     section[data-testid="stSidebar"] {
-        width: 520px !important;
-        min-width: 520px !important;
-        max-width: 520px !important;
+        width: 430px !important;
+        min-width: 430px !important;
+        max-width: 430px !important;
     }
-
     section[data-testid="stSidebar"] > div {
-        width: 520px !important;
-        min-width: 520px !important;
-        max-width: 520px !important;
-        padding-left: 10px !important;
-        padding-right: 10px !important;
+        width: 430px !important;
+        min-width: 430px !important;
+        max-width: 430px !important;
+        padding-left: 8px !important;
+        padding-right: 8px !important;
     }
-
+    div[data-testid="stSidebarContent"] {
+        width: 430px !important;
+        max-width: 430px !important;
+    }
     section[data-testid="stSidebar"] h1,
     section[data-testid="stSidebar"] h2,
     section[data-testid="stSidebar"] h3 {
-        font-size: 14px !important;
-        margin-top: 8px !important;
-        margin-bottom: 6px !important;
+        font-size: 13px !important;
+        margin-top: 6px !important;
+        margin-bottom: 4px !important;
     }
-
-    section[data-testid="stSidebar"] label {
-        font-size: 11px !important;
-    }
-
-    section[data-testid="stSidebar"] p {
-        font-size: 11px !important;
-        line-height: 1.2 !important;
-    }
-
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] label,
     section[data-testid="stSidebar"] div {
-        font-size: 11px !important;
-    }
-
-    section[data-testid="stSidebar"] [data-testid="stDataFrame"] {
         font-size: 10px !important;
+        line-height: 1.15 !important;
     }
-
-    section[data-testid="stSidebar"] [data-testid="stDataFrame"] div {
-        font-size: 10px !important;
-    }
-
     section[data-testid="stSidebar"] button {
-        font-size: 11px !important;
+        font-size: 10px !important;
         padding-top: 4px !important;
         padding-bottom: 4px !important;
     }
-
     section[data-testid="stSidebar"] .stAlert {
-        font-size: 11px !important;
+        font-size: 10px !important;
     }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-
-# =====================================================
-# MASTER DATA
-# =====================================================
-
 REGIONS = ["North", "West", "South", "East"]
-
-PRODUCTS = [
-    "UPS",
-    "Cooling",
-    "Power Products",
-    "Power System",
-    "Industrial Automation",
-]
+PRODUCTS = ["UPS", "Cooling", "Power Products", "Power System", "Industrial Automation"]
 
 PRODUCT_ALIASES = {
     "Power Product": "Power Products",
@@ -105,10 +73,28 @@ PRODUCT_ALIASES = {
     "Cooling": "Cooling",
 }
 
+REGION_DISPLAY = {
+    "North": "N",
+    "West": "W",
+    "South": "S",
+    "East": "E",
+}
 
-# =====================================================
-# DEFAULT PARAMETERS
-# =====================================================
+REGION_REVERSE_DISPLAY = {
+    value: key for key, value in REGION_DISPLAY.items()
+}
+
+PRODUCT_DISPLAY = {
+    "UPS": "UPS",
+    "Cooling": "Cooling",
+    "Power Products": "Power Prod",
+    "Power System": "Power Sys",
+    "Industrial Automation": "Ind Auto",
+}
+
+PRODUCT_REVERSE_DISPLAY = {
+    value: key for key, value in PRODUCT_DISPLAY.items()
+}
 
 DEFAULT_GROWTH_PARAMETERS = {
     "North": {
@@ -149,12 +135,8 @@ DEFAULT_ATTRITION = {
     "Industrial Automation": 8.0,
 }
 
-APP_SCHEMA_VERSION = "v8_sidebar_small_font_all_data_editor"
+APP_SCHEMA_VERSION = "v9_compact_product_names_sidebar"
 
-
-# =====================================================
-# SESSION INITIALIZATION
-# =====================================================
 
 def init_state():
     if st.session_state.get("schema_version") != APP_SCHEMA_VERSION:
@@ -170,10 +152,6 @@ def init_state():
         st.session_state.uploaded_file_id = None
 
 
-# =====================================================
-# SIDEBAR TABLE CONVERSION HELPERS
-# =====================================================
-
 def growth_dict_to_df(growth_parameters):
     rows = []
 
@@ -183,10 +161,10 @@ def growth_dict_to_df(growth_parameters):
 
             rows.append(
                 {
-                    "Region": region,
-                    "Product": product,
-                    "BAU %": float(params["BAU"]),
-                    "DC %": float(params["DC"]),
+                    "R": REGION_DISPLAY[region],
+                    "Product": PRODUCT_DISPLAY[product],
+                    "BAU": float(params["BAU"]),
+                    "DC": float(params["DC"]),
                 }
             )
 
@@ -197,13 +175,16 @@ def growth_df_to_dict(growth_df):
     growth_parameters = copy.deepcopy(DEFAULT_GROWTH_PARAMETERS)
 
     for _, row in growth_df.iterrows():
-        region = str(row["Region"]).strip()
-        product = str(row["Product"]).strip()
+        region_label = str(row["R"]).strip()
+        product_label = str(row["Product"]).strip()
+
+        region = REGION_REVERSE_DISPLAY.get(region_label)
+        product = PRODUCT_REVERSE_DISPLAY.get(product_label)
 
         if region in REGIONS and product in PRODUCTS:
             growth_parameters[region][product] = {
-                "BAU": float(row["BAU %"]),
-                "DC": float(row["DC %"]),
+                "BAU": float(row["BAU"]),
+                "DC": float(row["DC"]),
             }
 
     return growth_parameters
@@ -215,8 +196,8 @@ def attrition_dict_to_df(attrition_parameters):
     for product in PRODUCTS:
         rows.append(
             {
-                "Product": product,
-                "Attrition %": float(attrition_parameters.get(product, 8.0)),
+                "Product": PRODUCT_DISPLAY[product],
+                "Attr %": float(attrition_parameters.get(product, 8.0)),
             }
         )
 
@@ -227,10 +208,11 @@ def attrition_df_to_dict(attrition_df):
     attrition_parameters = copy.deepcopy(DEFAULT_ATTRITION)
 
     for _, row in attrition_df.iterrows():
-        product = str(row["Product"]).strip()
+        product_label = str(row["Product"]).strip()
+        product = PRODUCT_REVERSE_DISPLAY.get(product_label)
 
         if product in PRODUCTS:
-            attrition_parameters[product] = float(row["Attrition %"])
+            attrition_parameters[product] = float(row["Attr %"])
 
     return attrition_parameters
 
@@ -239,9 +221,9 @@ def productivity_to_df():
     return pd.DataFrame(
         [
             {
-                "Productive Hours Per Day": float(st.session_state.productive_hours),
-                "Working Days Per Month": int(st.session_state.working_days),
-                "Target Utilization %": float(st.session_state.target_utilization),
+                "Hrs/Day": float(st.session_state.productive_hours),
+                "Days/M": int(st.session_state.working_days),
+                "Util %": float(st.session_state.target_utilization),
             }
         ]
     )
@@ -250,16 +232,12 @@ def productivity_to_df():
 def productivity_df_to_values(productivity_df):
     row = productivity_df.iloc[0]
 
-    productive_hours = float(row["Productive Hours Per Day"])
-    working_days = int(row["Working Days Per Month"])
-    target_utilization = float(row["Target Utilization %"])
+    productive_hours = float(row["Hrs/Day"])
+    working_days = int(row["Days/M"])
+    target_utilization = float(row["Util %"])
 
     return productive_hours, working_days, target_utilization
 
-
-# =====================================================
-# GENERAL HELPERS
-# =====================================================
 
 def add_total_row_and_column(matrix):
     matrix = matrix.copy()
@@ -389,8 +367,13 @@ def validate_input_data(df):
     df["Product"] = df["Product"].astype(str).str.strip()
     df["Product"] = df["Product"].replace(PRODUCT_ALIASES)
 
-    invalid_regions = sorted(set(df["Region"].unique()) - set(REGIONS))
-    invalid_products = sorted(set(df["Product"].unique()) - set(PRODUCTS))
+    invalid_regions = sorted(
+        set(df["Region"].unique()) - set(REGIONS)
+    )
+
+    invalid_products = sorted(
+        set(df["Product"].unique()) - set(PRODUCTS)
+    )
 
     if invalid_regions:
         st.error(f"Invalid regions found in uploaded file: {invalid_regions}")
@@ -495,22 +478,12 @@ def show_bar_chart_with_values(data, x_col, y_col, title, color_col=None):
     )
 
 
-# =====================================================
-# SESSION STATE INITIALIZATION
-# =====================================================
-
 init_state()
-
-
-# =====================================================
-# SIDEBAR FORM
-# =====================================================
 
 st.sidebar.header("Planning Assumptions")
 
 st.sidebar.info(
-    "Edit the tables below, then click Apply Assumptions. "
-    "Dashboard refreshes only after applying."
+    "Edit the tables below, then click Apply Assumptions. Dashboard refreshes only after applying."
 )
 
 with st.sidebar.form("planning_assumptions_form"):
@@ -520,25 +493,26 @@ with st.sidebar.form("planning_assumptions_form"):
         growth_dict_to_df(st.session_state.growth_parameters),
         hide_index=True,
         use_container_width=True,
-        disabled=["Region", "Product"],
+        disabled=["R", "Product"],
+        height=430,
         column_config={
-            "Region": st.column_config.TextColumn(
-                "Region",
+            "R": st.column_config.TextColumn(
+                "R",
                 width="small",
             ),
             "Product": st.column_config.TextColumn(
                 "Product",
-                width="medium",
+                width="small",
             ),
-            "BAU %": st.column_config.NumberColumn(
-                "BAU %",
+            "BAU": st.column_config.NumberColumn(
+                "BAU",
                 min_value=0.0,
                 max_value=100.0,
                 step=1.0,
                 width="small",
             ),
-            "DC %": st.column_config.NumberColumn(
-                "DC %",
+            "DC": st.column_config.NumberColumn(
+                "DC",
                 min_value=0.0,
                 max_value=100.0,
                 step=1.0,
@@ -555,13 +529,14 @@ with st.sidebar.form("planning_assumptions_form"):
         hide_index=True,
         use_container_width=True,
         disabled=["Product"],
+        height=210,
         column_config={
             "Product": st.column_config.TextColumn(
                 "Product",
                 width="medium",
             ),
-            "Attrition %": st.column_config.NumberColumn(
-                "Attrition %",
+            "Attr %": st.column_config.NumberColumn(
+                "Attr %",
                 min_value=0.0,
                 max_value=30.0,
                 step=0.5,
@@ -577,23 +552,24 @@ with st.sidebar.form("planning_assumptions_form"):
         productivity_to_df(),
         hide_index=True,
         use_container_width=True,
+        height=85,
         column_config={
-            "Productive Hours Per Day": st.column_config.NumberColumn(
-                "Productive Hrs/Day",
+            "Hrs/Day": st.column_config.NumberColumn(
+                "Hrs/Day",
                 min_value=1.0,
                 max_value=24.0,
                 step=0.5,
-                width="medium",
+                width="small",
             ),
-            "Working Days Per Month": st.column_config.NumberColumn(
-                "Days/Month",
+            "Days/M": st.column_config.NumberColumn(
+                "Days/M",
                 min_value=1,
                 max_value=31,
                 step=1,
                 width="small",
             ),
-            "Target Utilization %": st.column_config.NumberColumn(
-                "Utilization %",
+            "Util %": st.column_config.NumberColumn(
+                "Util %",
                 min_value=1.0,
                 max_value=100.0,
                 step=1.0,
@@ -627,15 +603,11 @@ if apply_assumptions:
     st.sidebar.success("Assumptions applied. Dashboard will refresh.")
 
 
-# =====================================================
-# MAIN PAGE
-# =====================================================
-
 st.title("AI Enabled Workforce & Capacity Planning")
 
 st.info(
-    "Upload workforce_input.csv, update assumptions in the sidebar, "
-    "click Apply Assumptions, and review existing 2026 resources vs predicted next year requirement."
+    "Upload workforce_input.csv, update assumptions in the sidebar, click Apply Assumptions, "
+    "and review existing 2026 resources vs predicted next year requirement."
 )
 
 uploaded_file = st.file_uploader(
@@ -667,10 +639,6 @@ if st.session_state.input_df is None:
 
 df = st.session_state.input_df
 
-
-# =====================================================
-# CALCULATE WORKFORCE ONLY WHEN NEEDED
-# =====================================================
 
 if st.session_state.needs_recalc or st.session_state.result_df is None:
     try:
@@ -716,10 +684,6 @@ if missing_result_columns:
     st.stop()
 
 
-# =====================================================
-# DASHBOARD SUMMARY
-# =====================================================
-
 st.subheader("Dashboard Summary")
 
 total_current = df["Current_SE"].sum()
@@ -738,10 +702,6 @@ kpi4.metric("DC Addl. SE", total_dc_required)
 kpi5.metric("Next Year Required SE", total_combined_required)
 kpi6.metric("Additional Required", total_combined_hiring)
 
-
-# =====================================================
-# VISUAL DASHBOARD
-# =====================================================
 
 st.markdown("---")
 st.subheader("Visual Dashboard")
@@ -810,10 +770,6 @@ with chart_col4:
         "Region",
     )
 
-
-# =====================================================
-# DETAIL TABS
-# =====================================================
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs(
     [
