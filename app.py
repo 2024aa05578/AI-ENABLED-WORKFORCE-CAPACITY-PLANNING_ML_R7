@@ -88,6 +88,8 @@ DEFAULT_ATTRITION = {
     "Industrial Automation": 8.0,
 }
 
+APP_SCHEMA_VERSION = "v4_product_growth_plotly_stable"
+
 
 # =====================================================
 # HELPER FUNCTIONS
@@ -103,54 +105,18 @@ def clean_key(text):
     )
 
 
-def reset_growth_parameters():
-    st.session_state.growth_parameters = copy.deepcopy(DEFAULT_GROWTH_PARAMETERS)
-
-
-def validate_growth_parameters():
-    """
-    Ensures session state always has the latest region-product growth structure.
-    This prevents old Streamlit session data from breaking the app.
-    """
-    if "growth_parameters" not in st.session_state:
-        reset_growth_parameters()
-        return
-
-    if not isinstance(st.session_state.growth_parameters, dict):
-        reset_growth_parameters()
-        return
-
-    for region in REGIONS:
-        if region not in st.session_state.growth_parameters:
-            st.session_state.growth_parameters[region] = copy.deepcopy(
-                DEFAULT_GROWTH_PARAMETERS[region]
-            )
-
-        if not isinstance(st.session_state.growth_parameters[region], dict):
-            st.session_state.growth_parameters[region] = copy.deepcopy(
-                DEFAULT_GROWTH_PARAMETERS[region]
-            )
-
-        for product in PRODUCTS:
-            if product not in st.session_state.growth_parametersst.session_state.growth_parameters[region][product] = copy.deepcopy(
-                    DEFAULT_GROWTH_PARAMETERS[region][product]
-                )
-
-            if not isinstance(
-                st.session_state.growth_parameters[region][product],
-                dict,
-            ):
-                st.session_state.growth_parameters[region][product] = copy.deepcopy(
-                    DEFAULT_GROWTH_PARAMETERS[region][product]
-                )
-
-            if "BAU" not in st.session_state.growth_parameters[region]st.session_state.growth_parameters[region][product]["BAU"] = (
-                    DEFAULT_GROWTH_PARAMETERS[region][product]["BAU"]
-                )
-
-            if "DC" not in st.session_state.growth_parameters[region]st.session_state.growth_parameters[region][product]["DC"] = (
-                    DEFAULT_GROWTH_PARAMETERS[region][product]["DC"]
-                )
+def initialize_session_state(force_reset=False):
+    if force_reset or st.session_state.get("schema_version") != APP_SCHEMA_VERSION:
+        st.session_state.schema_version = APP_SCHEMA_VERSION
+        st.session_state.growth_parameters = copy.deepcopy(DEFAULT_GROWTH_PARAMETERS)
+        st.session_state.attrition_parameters = copy.deepcopy(DEFAULT_ATTRITION)
+        st.session_state.productive_hours = 7.0
+        st.session_state.working_days = 20
+        st.session_state.target_utilization = 90.0
+        st.session_state.input_df = None
+        st.session_state.result_df = None
+        st.session_state.needs_recalc = False
+        st.session_state.uploaded_file_id = None
 
 
 def add_total_row_and_column(matrix):
@@ -396,35 +362,7 @@ def show_bar_chart_with_values(data, x_col, y_col, title, color_col=None):
 # SESSION STATE INITIALIZATION
 # =====================================================
 
-validate_growth_parameters()
-
-if "attrition_parameters" not in st.session_state:
-    st.session_state.attrition_parameters = copy.deepcopy(DEFAULT_ATTRITION)
-
-for product in PRODUCTS:
-    if product not in st.session_state.attrition_parameters:
-        st.session_state.attrition_parameters[product] = DEFAULT_ATTRITION[product]
-
-if "productive_hours" not in st.session_state:
-    st.session_state.productive_hours = 7.0
-
-if "working_days" not in st.session_state:
-    st.session_state.working_days = 20
-
-if "target_utilization" not in st.session_state:
-    st.session_state.target_utilization = 90.0
-
-if "input_df" not in st.session_state:
-    st.session_state.input_df = None
-
-if "result_df" not in st.session_state:
-    st.session_state.result_df = None
-
-if "needs_recalc" not in st.session_state:
-    st.session_state.needs_recalc = False
-
-if "uploaded_file_id" not in st.session_state:
-    st.session_state.uploaded_file_id = None
+initialize_session_state()
 
 
 # =====================================================
@@ -572,7 +510,7 @@ uploaded_file = st.file_uploader(
 )
 
 if uploaded_file is not None:
-    current_file_id = f"{uploaded_file.name}_{uploaded_file.size}"
+    current_file_id = f"{uploaded_file.name}_{len(uploaded_file.getvalue())}"
 
     if current_file_id != st.session_state.uploaded_file_id:
         try:
