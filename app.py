@@ -24,47 +24,47 @@ st.markdown(
     """
     <style>
     section[data-testid="stSidebar"] {
-        width: 430px !important;
-        min-width: 430px !important;
-        max-width: 430px !important;
+        width: 395px !important;
+        min-width: 395px !important;
+        max-width: 395px !important;
     }
 
     section[data-testid="stSidebar"] > div {
-        width: 430px !important;
-        min-width: 430px !important;
-        max-width: 430px !important;
-        padding-left: 8px !important;
-        padding-right: 8px !important;
+        width: 395px !important;
+        min-width: 395px !important;
+        max-width: 395px !important;
+        padding-left: 6px !important;
+        padding-right: 6px !important;
     }
 
     div[data-testid="stSidebarContent"] {
-        width: 430px !important;
-        max-width: 430px !important;
+        width: 395px !important;
+        max-width: 395px !important;
     }
 
     section[data-testid="stSidebar"] h1,
     section[data-testid="stSidebar"] h2,
     section[data-testid="stSidebar"] h3 {
-        font-size: 13px !important;
-        margin-top: 6px !important;
-        margin-bottom: 4px !important;
+        font-size: 12px !important;
+        margin-top: 5px !important;
+        margin-bottom: 3px !important;
     }
 
     section[data-testid="stSidebar"] p,
     section[data-testid="stSidebar"] label,
     section[data-testid="stSidebar"] div {
-        font-size: 10px !important;
-        line-height: 1.15 !important;
+        font-size: 9px !important;
+        line-height: 1.1 !important;
     }
 
     section[data-testid="stSidebar"] button {
         font-size: 10px !important;
-        padding-top: 4px !important;
-        padding-bottom: 4px !important;
+        padding-top: 3px !important;
+        padding-bottom: 3px !important;
     }
 
     section[data-testid="stSidebar"] .stAlert {
-        font-size: 10px !important;
+        font-size: 9px !important;
     }
     </style>
     """,
@@ -152,7 +152,7 @@ DEFAULT_ATTRITION = {
     "Industrial Automation": 8.0,
 }
 
-APP_SCHEMA_VERSION = "v10_region_sections_no_region_column"
+APP_SCHEMA_VERSION = "v11_region_sections_arrow_headers"
 
 
 # =====================================================
@@ -540,21 +540,21 @@ with st.sidebar.form("planning_assumptions_form"):
             column_config={
                 "Product": st.column_config.TextColumn(
                     "Product",
-                    width="medium",
+                    width=120,
                 ),
                 "BAU": st.column_config.NumberColumn(
-                    "BAU",
+                    "BAU ↑%",
                     min_value=0.0,
                     max_value=100.0,
                     step=1.0,
-                    width="small",
+                    width=58,
                 ),
                 "DC": st.column_config.NumberColumn(
-                    "DC",
+                    "DC ↑%",
                     min_value=0.0,
                     max_value=100.0,
                     step=1.0,
-                    width="small",
+                    width=58,
                 ),
             },
             key=f"growth_data_editor_{region.lower()}",
@@ -573,14 +573,14 @@ with st.sidebar.form("planning_assumptions_form"):
         column_config={
             "Product": st.column_config.TextColumn(
                 "Product",
-                width="medium",
+                width=125,
             ),
             "Attr %": st.column_config.NumberColumn(
                 "Attr %",
                 min_value=0.0,
                 max_value=30.0,
                 step=0.5,
-                width="small",
+                width=65,
             ),
         },
         key="attrition_data_editor",
@@ -599,21 +599,21 @@ with st.sidebar.form("planning_assumptions_form"):
                 min_value=1.0,
                 max_value=24.0,
                 step=0.5,
-                width="small",
+                width=70,
             ),
             "Days/M": st.column_config.NumberColumn(
                 "Days/M",
                 min_value=1,
                 max_value=31,
                 step=1,
-                width="small",
+                width=65,
             ),
             "Util %": st.column_config.NumberColumn(
                 "Util %",
                 min_value=1.0,
                 max_value=100.0,
                 step=1.0,
-                width="small",
+                width=65,
             ),
         },
         key="productivity_data_editor",
