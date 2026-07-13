@@ -24,27 +24,56 @@ st.markdown(
     """
     <style>
     section[data-testid="stSidebar"] {
-        width: 540px !important;
-        min-width: 540px !important;
-        max-width: 540px !important;
+        width: 520px !important;
+        min-width: 520px !important;
+        max-width: 520px !important;
     }
 
     section[data-testid="stSidebar"] > div {
-        width: 540px !important;
-        min-width: 540px !important;
-        max-width: 540px !important;
+        width: 520px !important;
+        min-width: 520px !important;
+        max-width: 520px !important;
+        padding-left: 10px !important;
+        padding-right: 10px !important;
+    }
+
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3 {
+        font-size: 14px !important;
+        margin-top: 8px !important;
+        margin-bottom: 6px !important;
     }
 
     section[data-testid="stSidebar"] label {
-        font-size: 13px !important;
+        font-size: 11px !important;
     }
 
     section[data-testid="stSidebar"] p {
-        font-size: 13px !important;
+        font-size: 11px !important;
+        line-height: 1.2 !important;
     }
 
     section[data-testid="stSidebar"] div {
-        font-size: 13px;
+        font-size: 11px !important;
+    }
+
+    section[data-testid="stSidebar"] [data-testid="stDataFrame"] {
+        font-size: 10px !important;
+    }
+
+    section[data-testid="stSidebar"] [data-testid="stDataFrame"] div {
+        font-size: 10px !important;
+    }
+
+    section[data-testid="stSidebar"] button {
+        font-size: 11px !important;
+        padding-top: 4px !important;
+        padding-bottom: 4px !important;
+    }
+
+    section[data-testid="stSidebar"] .stAlert {
+        font-size: 11px !important;
     }
     </style>
     """,
@@ -120,7 +149,7 @@ DEFAULT_ATTRITION = {
     "Industrial Automation": 8.0,
 }
 
-APP_SCHEMA_VERSION = "v7_sidebar_width_frozen_all_data_editor"
+APP_SCHEMA_VERSION = "v8_sidebar_small_font_all_data_editor"
 
 
 # =====================================================
@@ -142,7 +171,7 @@ def init_state():
 
 
 # =====================================================
-# CONVERSION HELPERS
+# SIDEBAR TABLE CONVERSION HELPERS
 # =====================================================
 
 def growth_dict_to_df(growth_parameters):
@@ -360,13 +389,8 @@ def validate_input_data(df):
     df["Product"] = df["Product"].astype(str).str.strip()
     df["Product"] = df["Product"].replace(PRODUCT_ALIASES)
 
-    invalid_regions = sorted(
-        set(df["Region"].unique()) - set(REGIONS)
-    )
-
-    invalid_products = sorted(
-        set(df["Product"].unique()) - set(PRODUCTS)
-    )
+    invalid_regions = sorted(set(df["Region"].unique()) - set(REGIONS))
+    invalid_products = sorted(set(df["Product"].unique()) - set(PRODUCTS))
 
     if invalid_regions:
         st.error(f"Invalid regions found in uploaded file: {invalid_regions}")
@@ -486,7 +510,7 @@ st.sidebar.header("Planning Assumptions")
 
 st.sidebar.info(
     "Edit the tables below, then click Apply Assumptions. "
-    "The dashboard refreshes only after applying."
+    "Dashboard refreshes only after applying."
 )
 
 with st.sidebar.form("planning_assumptions_form"):
