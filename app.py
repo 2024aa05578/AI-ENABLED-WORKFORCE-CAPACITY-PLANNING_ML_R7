@@ -8,14 +8,31 @@ import streamlit as st
 
 from workforce_model import calculate_workforce
 
+
+# =====================================================
+# PAGE CONFIGURATION
+# =====================================================
+
 st.set_page_config(
     page_title="AI Enabled Workforce & Capacity Planning",
     page_icon="🚀",
     layout="wide",
 )
 
+
+# =====================================================
+# MASTER DATA
+# =====================================================
+
 REGIONS = ["North", "West", "South", "East"]
-PRODUCTS = ["UPS", "Cooling", "Power Products", "Power System", "Industrial Automation"]
+
+PRODUCTS = [
+    "UPS",
+    "Cooling",
+    "Power Products",
+    "Power System",
+    "Industrial Automation",
+]
 
 PRODUCT_ALIASES = {
     "Power Product": "Power Products",
@@ -26,6 +43,11 @@ PRODUCT_ALIASES = {
     "UPS": "UPS",
     "Cooling": "Cooling",
 }
+
+
+# =====================================================
+# DEFAULT PARAMETERS
+# =====================================================
 
 DEFAULT_GROWTH_PARAMETERS = {
     "North": {
@@ -67,8 +89,18 @@ DEFAULT_ATTRITION = {
 }
 
 
+# =====================================================
+# HELPER FUNCTIONS
+# =====================================================
+
 def clean_key(text):
-    return str(text).lower().replace(" ", "_").replace("-", "_").replace("/", "_")
+    return (
+        str(text)
+        .lower()
+        .replace(" ", "_")
+        .replace("-", "_")
+        .replace("/", "_")
+    )
 
 
 def reset_growth_parameters():
@@ -76,6 +108,10 @@ def reset_growth_parameters():
 
 
 def validate_growth_parameters():
+    """
+    Ensures session state always has the latest region-product growth structure.
+    This prevents old Streamlit session data from breaking the app.
+    """
     if "growth_parameters" not in st.session_state:
         reset_growth_parameters()
         return
@@ -100,7 +136,10 @@ def validate_growth_parameters():
                     DEFAULT_GROWTH_PARAMETERS[region][product]
                 )
 
-            if not isinstance(st.session_state.growth_parameters[region][product], dict):
+            if not isinstance(
+                st.session_state.growth_parameters[region][product],
+                dict,
+            ):
                 st.session_state.growth_parameters[region][product] = copy.deepcopy(
                     DEFAULT_GROWTH_PARAMETERS[region][product]
                 )
@@ -117,8 +156,10 @@ def validate_growth_parameters():
 def add_total_row_and_column(matrix):
     matrix = matrix.copy()
     matrix["Total"] = matrix.sum(axis=1)
+
     total_row = pd.DataFrame(matrix.sum(axis=0)).T
     total_row.index = ["Total"]
+
     return pd.concat([matrix, total_row])
 
 
@@ -137,7 +178,11 @@ def build_bu_requirement_comparison(df, result):
         .rename(columns={"Combined Required Engineers": "Next Year Required SE"})
     )
 
-    comparison = existing_resource.merge(next_year_requirement, on="Product", how="outer")
+    comparison = existing_resource.merge(
+        next_year_requirement,
+        on="Product",
+        how="outer",
+    )
 
     comparison["Existing 2026 SE"] = comparison["Existing 2026 SE"].fillna(0)
     comparison["Next Year Required SE"] = comparison["Next Year Required SE"].fillna(0)
@@ -164,7 +209,10 @@ def build_bu_requirement_comparison(df, result):
         }
     )
 
-    return pd.concat([comparison, total_row], ignore_index=True)
+    return pd.concat(
+        [comparison, total_row],
+        ignore_index=True,
+    )
 
 
 def safe_read_csv(uploaded_file):
@@ -185,7 +233,13 @@ def safe_read_csv(uploaded_file):
 
         cleaned_lines.append(line)
 
-    df = pd.read_csv(StringIO("\n".join(cleaned_lines)), engine="python")
+    cleaned_text = "\n".join(cleaned_lines)
+
+    df = pd.read_csv(
+        StringIO(cleaned_text),
+        engine="python",
+    )
+
     df.columns = df.columns.str.strip()
 
     unnamed_cols = [
@@ -227,8 +281,13 @@ def validate_input_data(df):
     df["Product"] = df["Product"].astype(str).str.strip()
     df["Product"] = df["Product"].replace(PRODUCT_ALIASES)
 
-    invalid_regions = sorted(set(df["Region"].unique()) - set(REGIONS))
-    invalid_products = sorted(set(df["Product"].unique()) - set(PRODUCTS))
+    invalid_regions = sorted(
+        set(df["Region"].unique()) - set(REGIONS)
+    )
+
+    invalid_products = sorted(
+        set(df["Product"].unique()) - set(PRODUCTS)
+    )
 
     if invalid_regions:
         st.error(f"Invalid regions found in uploaded file: {invalid_regions}")
@@ -249,7 +308,10 @@ def validate_input_data(df):
     ]
 
     for col in numeric_columns:
-        df[col] = pd.to_numeric(df[col], errors="coerce")
+        df[col] = pd.to_numeric(
+            df[col],
+            errors="coerce",
+        )
 
     if df[numeric_columns].isnull().any().any():
         st.error("Some numeric columns contain blank or invalid numeric values.")
@@ -293,12 +355,20 @@ def show_bar_chart_with_values(data, x_col, y_col, title, color_col=None):
         height=430,
         title_x=0.05,
         showlegend=False,
-        margin=dict(l=40, r=30, t=70, b=90),
+        margin=dict(
+            l=40,
+            r=30,
+            t=70,
+            b=90,
+        ),
         xaxis_title="",
         yaxis_title="Engineers",
         plot_bgcolor="white",
         paper_bgcolor="white",
-        font=dict(size=12, color="#243447"),
+        font=dict(
+            size=12,
+            color="#243447",
+        ),
     )
 
     fig.update_xaxes(
@@ -377,7 +447,9 @@ with st.sidebar.form("planning_assumptions_form"):
 
         st.markdown(f"### {region} Growth")
 
-        header_product_col, header_bau_col, header_dc_col = st.columns([1.8, 1, 1])
+        header_product_col, header_bau_col, header_dc_col = st.columns(
+            [1.8, 1, 1]
+        )
 
         with header_product_col:
             st.markdown("**Product**")
@@ -389,7 +461,9 @@ with st.sidebar.form("planning_assumptions_form"):
             st.markdown("**DC %**")
 
         for product in PRODUCTS:
-            product_col, bau_col, dc_col = st.columns([1.8, 1, 1])
+            product_col, bau_col, dc_col = st.columns(
+                [1.8, 1, 1]
+            )
 
             with product_col:
                 st.write(product)
@@ -689,6 +763,7 @@ with tab2:
 
 with tab3:
     st.subheader("BU Requirement Comparison")
+
     st.info(
         "This table compares existing 2026 resources with predicted next year requirement."
     )
