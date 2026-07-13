@@ -17,29 +17,30 @@ st.set_page_config(
 
 
 # =====================================================
-# COMPACT FIXED SIDEBAR
+# COMPACT FIXED SIDEBAR WITH COLORS
 # =====================================================
 
 st.markdown(
     """
     <style>
     section[data-testid="stSidebar"] {
-        width: 395px !important;
-        min-width: 395px !important;
-        max-width: 395px !important;
+        width: 380px !important;
+        min-width: 380px !important;
+        max-width: 380px !important;
+        background: linear-gradient(180deg, #F8FAFC 0%, #EEF4FA 100%);
     }
 
     section[data-testid="stSidebar"] > div {
-        width: 395px !important;
-        min-width: 395px !important;
-        max-width: 395px !important;
+        width: 380px !important;
+        min-width: 380px !important;
+        max-width: 380px !important;
         padding-left: 6px !important;
         padding-right: 6px !important;
     }
 
     div[data-testid="stSidebarContent"] {
-        width: 395px !important;
-        max-width: 395px !important;
+        width: 380px !important;
+        max-width: 380px !important;
     }
 
     section[data-testid="stSidebar"] h1,
@@ -48,6 +49,7 @@ st.markdown(
         font-size: 12px !important;
         margin-top: 5px !important;
         margin-bottom: 3px !important;
+        color: #1F4E79 !important;
     }
 
     section[data-testid="stSidebar"] p,
@@ -61,10 +63,32 @@ st.markdown(
         font-size: 10px !important;
         padding-top: 3px !important;
         padding-bottom: 3px !important;
+        background-color: #1F4E79 !important;
+        color: white !important;
+        border-radius: 6px !important;
     }
 
     section[data-testid="stSidebar"] .stAlert {
         font-size: 9px !important;
+    }
+
+    .region-header {
+        padding: 5px 8px;
+        border-radius: 7px;
+        margin-top: 6px;
+        margin-bottom: 4px;
+        font-weight: 700;
+        font-size: 11px;
+    }
+
+    .sidebar-note {
+        font-size: 9px;
+        color: #475569;
+        padding: 5px 7px;
+        border-radius: 6px;
+        background: #EAF2F8;
+        border-left: 3px solid #1F4E79;
+        margin-bottom: 6px;
     }
     </style>
     """,
@@ -106,6 +130,29 @@ PRODUCT_DISPLAY = {
 
 PRODUCT_REVERSE_DISPLAY = {
     value: key for key, value in PRODUCT_DISPLAY.items()
+}
+
+REGION_STYLES = {
+    "North": {
+        "bg": "#EAF4FF",
+        "border": "#1F77B4",
+        "text": "#174A7C",
+    },
+    "West": {
+        "bg": "#FFF4E5",
+        "border": "#FF7F0E",
+        "text": "#8A4A00",
+    },
+    "South": {
+        "bg": "#EAF8EF",
+        "border": "#2CA02C",
+        "text": "#1B6B28",
+    },
+    "East": {
+        "bg": "#F3EAFB",
+        "border": "#9467BD",
+        "text": "#573B78",
+    },
 }
 
 
@@ -152,7 +199,7 @@ DEFAULT_ATTRITION = {
     "Industrial Automation": 8.0,
 }
 
-APP_SCHEMA_VERSION = "v11_region_sections_arrow_headers"
+APP_SCHEMA_VERSION = "v12_short_sidebar_colored_region_sections"
 
 
 # =====================================================
@@ -174,8 +221,24 @@ def init_state():
 
 
 # =====================================================
-# SIDEBAR TABLE CONVERSION HELPERS
+# SIDEBAR DISPLAY HELPERS
 # =====================================================
+
+def show_region_header(region):
+    style = REGION_STYLES[region]
+
+    st.markdown(
+        f"""
+        <div class="region-header"
+             style="background:{style['bg']};
+                    border-left:4px solid {style['border']};
+                    color:{style['text']};">
+            {region} Growth
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
 
 def growth_region_to_df(growth_parameters, region):
     rows = []
@@ -516,8 +579,13 @@ init_state()
 
 st.sidebar.header("Planning Assumptions")
 
-st.sidebar.info(
-    "Edit the tables below, then click Apply Assumptions. Dashboard refreshes only after applying."
+st.sidebar.markdown(
+    """
+    <div class="sidebar-note">
+        Edit assumptions and click Apply. Dashboard refreshes only after applying.
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
 with st.sidebar.form("planning_assumptions_form"):
@@ -526,7 +594,7 @@ with st.sidebar.form("planning_assumptions_form"):
     edited_growth_dfs = {}
 
     for region in REGIONS:
-        st.markdown(f"**{region} Growth**")
+        show_region_header(region)
 
         edited_growth_dfs[region] = st.data_editor(
             growth_region_to_df(
@@ -540,27 +608,25 @@ with st.sidebar.form("planning_assumptions_form"):
             column_config={
                 "Product": st.column_config.TextColumn(
                     "Product",
-                    width=120,
+                    width=112,
                 ),
                 "BAU": st.column_config.NumberColumn(
                     "BAU ↑%",
                     min_value=0.0,
                     max_value=100.0,
                     step=1.0,
-                    width=58,
+                    width=54,
                 ),
                 "DC": st.column_config.NumberColumn(
                     "DC ↑%",
                     min_value=0.0,
                     max_value=100.0,
                     step=1.0,
-                    width=58,
+                    width=54,
                 ),
             },
             key=f"growth_data_editor_{region.lower()}",
         )
-
-        st.markdown("---")
 
     st.subheader("BU Wise Attrition")
 
@@ -573,14 +639,14 @@ with st.sidebar.form("planning_assumptions_form"):
         column_config={
             "Product": st.column_config.TextColumn(
                 "Product",
-                width=125,
+                width=118,
             ),
             "Attr %": st.column_config.NumberColumn(
                 "Attr %",
                 min_value=0.0,
                 max_value=30.0,
                 step=0.5,
-                width=65,
+                width=58,
             ),
         },
         key="attrition_data_editor",
@@ -599,21 +665,21 @@ with st.sidebar.form("planning_assumptions_form"):
                 min_value=1.0,
                 max_value=24.0,
                 step=0.5,
-                width=70,
+                width=64,
             ),
             "Days/M": st.column_config.NumberColumn(
                 "Days/M",
                 min_value=1,
                 max_value=31,
                 step=1,
-                width=65,
+                width=58,
             ),
             "Util %": st.column_config.NumberColumn(
                 "Util %",
                 min_value=1.0,
                 max_value=100.0,
                 step=1.0,
-                width=65,
+                width=58,
             ),
         },
         key="productivity_data_editor",
