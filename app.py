@@ -8,23 +8,14 @@ import streamlit as st
 
 from workforce_model import calculate_workforce
 
-
 st.set_page_config(
     page_title="AI Enabled Workforce & Capacity Planning",
     page_icon="🚀",
     layout="wide",
 )
 
-
 REGIONS = ["North", "West", "South", "East"]
-
-PRODUCTS = [
-    "UPS",
-    "Cooling",
-    "Power Products",
-    "Power System",
-    "Industrial Automation",
-]
+PRODUCTS = ["UPS", "Cooling", "Power Products", "Power System", "Industrial Automation"]
 
 PRODUCT_ALIASES = {
     "Power Product": "Power Products",
@@ -35,7 +26,6 @@ PRODUCT_ALIASES = {
     "UPS": "UPS",
     "Cooling": "Cooling",
 }
-
 
 DEFAULT_GROWTH_PARAMETERS = {
     "North": {
@@ -68,7 +58,6 @@ DEFAULT_GROWTH_PARAMETERS = {
     },
 }
 
-
 DEFAULT_ATTRITION = {
     "UPS": 8.0,
     "Cooling": 8.0,
@@ -79,35 +68,21 @@ DEFAULT_ATTRITION = {
 
 
 def clean_key(text):
-    return (
-        str(text)
-        .lower()
-        .replace(" ", "_")
-        .replace("-", "_")
-        .replace("/", "_")
-    )
+    return str(text).lower().replace(" ", "_").replace("-", "_").replace("/", "_")
 
 
-def add_total_row_and_column(matrix):
-    matrix = matrix.copy()
-    matrix["Total"] = matrix.sum(axis=1)
-
-    total_row = pd.DataFrame(matrix.sum(axis=0)).T
-    total_row.index = ["Total"]
-
-    return pd.concat([matrix, total_row])
+def reset_growth_parameters():
+    st.session_state.growth_parameters = copy.deepcopy(DEFAULT_GROWTH_PARAMETERS)
 
 
-def ensure_growth_structure():
-    """
-    Ensures session state has the latest region-product growth structure.
-    This prevents errors when Streamlit cache/session still contains old data.
-    """
+def validate_growth_parameters():
     if "growth_parameters" not in st.session_state:
-        st.session_state.growth_parameters = copy.deepcopy(DEFAULT_GROWTH_PARAMETERS)
+        reset_growth_parameters()
+        return
 
     if not isinstance(st.session_state.growth_parameters, dict):
-        st.session_state.growth_parameters = copy.deepcopy(DEFAULT_GROWTH_PARAMETERS)
+        reset_growth_parameters()
+        return
 
     for region in REGIONS:
         if region not in st.session_state.growth_parameters:
@@ -125,10 +100,7 @@ def ensure_growth_structure():
                     DEFAULT_GROWTH_PARAMETERS[region][product]
                 )
 
-            if not isinstance(
-                st.session_state.growth_parameters[region][product],
-                dict,
-            ):
+            if not isinstance(st.session_state.growth_parameters[region][product], dict):
                 st.session_state.growth_parameters[region][product] = copy.deepcopy(
                     DEFAULT_GROWTH_PARAMETERS[region][product]
                 )
@@ -140,6 +112,14 @@ def ensure_growth_structure():
             if "DC" not in st.session_state.growth_parameters[region]st.session_state.growth_parameters[region][product]["DC"] = (
                     DEFAULT_GROWTH_PARAMETERS[region][product]["DC"]
                 )
+
+
+def add_total_row_and_column(matrix):
+    matrix = matrix.copy()
+    matrix["Total"] = matrix.sum(axis=1)
+    total_row = pd.DataFrame(matrix.sum(axis=0)).T
+    total_row.index = ["Total"]
+    return pd.concat([matrix, total_row])
 
 
 def build_bu_requirement_comparison(df, result):
@@ -157,11 +137,7 @@ def build_bu_requirement_comparison(df, result):
         .rename(columns={"Combined Required Engineers": "Next Year Required SE"})
     )
 
-    comparison = existing_resource.merge(
-        next_year_requirement,
-        on="Product",
-        how="outer",
-    )
+    comparison = existing_resource.merge(next_year_requirement, on="Product", how="outer")
 
     comparison["Existing 2026 SE"] = comparison["Existing 2026 SE"].fillna(0)
     comparison["Next Year Required SE"] = comparison["Next Year Required SE"].fillna(0)
@@ -188,12 +164,7 @@ def build_bu_requirement_comparison(df, result):
         }
     )
 
-    comparison = pd.concat(
-        [comparison, total_row],
-        ignore_index=True,
-    )
-
-    return comparison
+    return pd.concat([comparison, total_row], ignore_index=True)
 
 
 def safe_read_csv(uploaded_file):
@@ -214,13 +185,7 @@ def safe_read_csv(uploaded_file):
 
         cleaned_lines.append(line)
 
-    cleaned_text = "\n".join(cleaned_lines)
-
-    df = pd.read_csv(
-        StringIO(cleaned_text),
-        engine="python",
-    )
-
+    df = pd.read_csv(StringIO("\n".join(cleaned_lines)), engine="python")
     df.columns = df.columns.str.strip()
 
     unnamed_cols = [
@@ -262,13 +227,8 @@ def validate_input_data(df):
     df["Product"] = df["Product"].astype(str).str.strip()
     df["Product"] = df["Product"].replace(PRODUCT_ALIASES)
 
-    invalid_regions = sorted(
-        set(df["Region"].unique()) - set(REGIONS)
-    )
-
-    invalid_products = sorted(
-        set(df["Product"].unique()) - set(PRODUCTS)
-    )
+    invalid_regions = sorted(set(df["Region"].unique()) - set(REGIONS))
+    invalid_products = sorted(set(df["Product"].unique()) - set(PRODUCTS))
 
     if invalid_regions:
         st.error(f"Invalid regions found in uploaded file: {invalid_regions}")
@@ -289,10 +249,7 @@ def validate_input_data(df):
     ]
 
     for col in numeric_columns:
-        df[col] = pd.to_numeric(
-            df[col],
-            errors="coerce",
-        )
+        df[col] = pd.to_numeric(df[col], errors="coerce")
 
     if df[numeric_columns].isnull().any().any():
         st.error("Some numeric columns contain blank or invalid numeric values.")
@@ -336,20 +293,12 @@ def show_bar_chart_with_values(data, x_col, y_col, title, color_col=None):
         height=430,
         title_x=0.05,
         showlegend=False,
-        margin=dict(
-            l=40,
-            r=30,
-            t=70,
-            b=90,
-        ),
+        margin=dict(l=40, r=30, t=70, b=90),
         xaxis_title="",
         yaxis_title="Engineers",
         plot_bgcolor="white",
         paper_bgcolor="white",
-        font=dict(
-            size=12,
-            color="#243447",
-        ),
+        font=dict(size=12, color="#243447"),
     )
 
     fig.update_xaxes(
@@ -374,13 +323,10 @@ def show_bar_chart_with_values(data, x_col, y_col, title, color_col=None):
 
 
 # =====================================================
-# SESSION STATE
+# SESSION STATE INITIALIZATION
 # =====================================================
 
-if "growth_parameters" not in st.session_state:
-    st.session_state.growth_parameters = copy.deepcopy(DEFAULT_GROWTH_PARAMETERS)
-
-ensure_growth_structure()
+validate_growth_parameters()
 
 if "attrition_parameters" not in st.session_state:
     st.session_state.attrition_parameters = copy.deepcopy(DEFAULT_ATTRITION)
@@ -530,7 +476,6 @@ if apply_assumptions:
     st.session_state.productive_hours = updated_productive_hours
     st.session_state.working_days = updated_working_days
     st.session_state.target_utilization = updated_target_utilization
-
     st.session_state.needs_recalc = True
 
     st.sidebar.success("Assumptions applied. Dashboard will refresh.")
@@ -665,11 +610,11 @@ with chart_col1:
     )
 
     show_bar_chart_with_values(
-        data=product_required,
-        x_col="Product",
-        y_col="Combined Required Engineers",
-        title="Next Year Required SE by Product",
-        color_col="Product",
+        product_required,
+        "Product",
+        "Combined Required Engineers",
+        "Next Year Required SE by Product",
+        "Product",
     )
 
 with chart_col2:
@@ -680,11 +625,11 @@ with chart_col2:
     )
 
     show_bar_chart_with_values(
-        data=region_required,
-        x_col="Region",
-        y_col="Combined Required Engineers",
-        title="Next Year Required SE by Region",
-        color_col="Region",
+        region_required,
+        "Region",
+        "Combined Required Engineers",
+        "Next Year Required SE by Region",
+        "Region",
     )
 
 chart_col3, chart_col4 = st.columns(2)
@@ -697,11 +642,11 @@ with chart_col3:
     )
 
     show_bar_chart_with_values(
-        data=product_hiring,
-        x_col="Product",
-        y_col="Combined Additional Required",
-        title="Additional Requirement by Product",
-        color_col="Product",
+        product_hiring,
+        "Product",
+        "Combined Additional Required",
+        "Additional Requirement by Product",
+        "Product",
     )
 
 with chart_col4:
@@ -712,11 +657,11 @@ with chart_col4:
     )
 
     show_bar_chart_with_values(
-        data=region_hiring,
-        x_col="Region",
-        y_col="Combined Additional Required",
-        title="Additional Requirement by Region",
-        color_col="Region",
+        region_hiring,
+        "Region",
+        "Combined Additional Required",
+        "Additional Requirement by Region",
+        "Region",
     )
 
 
@@ -744,7 +689,6 @@ with tab2:
 
 with tab3:
     st.subheader("BU Requirement Comparison")
-
     st.info(
         "This table compares existing 2026 resources with predicted next year requirement."
     )
