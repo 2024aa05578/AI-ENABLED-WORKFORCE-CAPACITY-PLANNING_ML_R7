@@ -9,10 +9,6 @@ import streamlit as st
 from workforce_model import calculate_workforce
 
 
-# =====================================================
-# PAGE CONFIGURATION
-# =====================================================
-
 st.set_page_config(
     page_title="AI Enabled Workforce & Capacity Planning",
     page_icon="🚀",
@@ -20,19 +16,8 @@ st.set_page_config(
 )
 
 
-# =====================================================
-# MASTER DATA
-# =====================================================
-
 REGIONS = ["North", "West", "South", "East"]
-
-PRODUCTS = [
-    "UPS",
-    "Cooling",
-    "Power Products",
-    "Power System",
-    "Industrial Automation",
-]
+PRODUCTS = ["UPS", "Cooling", "Power Products", "Power System", "Industrial Automation"]
 
 PRODUCT_ALIASES = {
     "Power Product": "Power Products",
@@ -43,11 +28,6 @@ PRODUCT_ALIASES = {
     "UPS": "UPS",
     "Cooling": "Cooling",
 }
-
-
-# =====================================================
-# DEFAULT PARAMETERS
-# =====================================================
 
 DEFAULT_GROWTH_PARAMETERS = {
     "North": {
@@ -88,25 +68,11 @@ DEFAULT_ATTRITION = {
     "Industrial Automation": 8.0,
 }
 
-APP_SCHEMA_VERSION = "v4_product_growth_plotly_stable"
+APP_SCHEMA_VERSION = "v5_growth_data_editor_stable"
 
 
-# =====================================================
-# HELPER FUNCTIONS
-# =====================================================
-
-def clean_key(text):
-    return (
-        str(text)
-        .lower()
-        .replace(" ", "_")
-        .replace("-", "_")
-        .replace("/", "_")
-    )
-
-
-def initialize_session_state(force_reset=False):
-    if force_reset or st.session_state.get("schema_version") != APP_SCHEMA_VERSION:
+def init_state():
+    if st.session_state.get("schema_version") != APP_SCHEMA_VERSION:
         st.session_state.schema_version = APP_SCHEMA_VERSION
         st.session_state.growth_parameters = copy.deepcopy(DEFAULT_GROWTH_PARAMETERS)
         st.session_state.attrition_parameters = copy.deepcopy(DEFAULT_ATTRITION)
@@ -117,6 +83,67 @@ def initialize_session_state(force_reset=False):
         st.session_state.result_df = None
         st.session_state.needs_recalc = False
         st.session_state.uploaded_file_id = None
+
+
+def growth_dict_to_df(growth_parameters):
+    rows = []
+
+    for region in REGIONS:
+        for product in PRODUCTS:
+            params = growth_parameters[region][product]
+
+            rows.append(
+                {
+                    "Region": region,
+                    "Product": product,
+                    "BAU %": float(params["BAU"]),
+                    "DC %": float(params["DC"]),
+                }
+            )
+
+    return pd.DataFrame(rows)
+
+
+def growth_df_to_dict(growth_df):
+    growth_parameters = copy.deepcopy(DEFAULT_GROWTH_PARAMETERS)
+
+    for _, row in growth_df.iterrows():
+        region = str(row["Region"]).strip()
+        product = str(row["Product"]).strip()
+
+        if region in REGIONS and product in PRODUCTS:
+            growth_parameters[region][product] = {
+                "BAU": float(row["BAU %"]),
+                "DC": float(row["DC %"]),
+            }
+
+    return growth_parameters
+
+
+def attrition_dict_to_df(attrition_parameters):
+    rows = []
+
+    for product in PRODUCTS:
+        rows.append(
+            {
+                "Product": product,
+                "Attrition %": float(attrition_parameters.get(product, 8.0)),
+            }
+        )
+
+    return pd.DataFrame(rows)
+
+
+def attrition_df_to_dict(attrition_df):
+    attrition_parameters = copy.deepcopy(DEFAULT_ATTRITION)
+
+    for _, row in attrition_df.iterrows():
+        product = str(row["Product"]).strip()
+
+        if product in PRODUCTS:
+            attrition_parameters[product] = float(row["Attrition %"])
+
+    return attrition_parameters
 
 
 def add_total_row_and_column(matrix):
@@ -362,7 +389,7 @@ def show_bar_chart_with_values(data, x_col, y_col, title, color_col=None):
 # SESSION STATE INITIALIZATION
 # =====================================================
 
-initialize_session_state()
+init_state()
 
 
 # =====================================================
@@ -372,86 +399,60 @@ initialize_session_state()
 st.sidebar.header("Planning Assumptions")
 
 st.sidebar.info(
-    "Update product-wise BAU and DC growth, then click Apply Assumptions."
+    "Edit the tables below, then click Apply Assumptions. "
+    "The dashboard refreshes only after applying."
 )
 
 with st.sidebar.form("planning_assumptions_form"):
     st.subheader("Region and Product Wise Growth")
 
-    updated_growth_parameters = {}
+    growth_input_df = growth_dict_to_df(
+        st.session_state.growth_parameters
+    )
 
-    for region in REGIONS:
-        updated_growth_parameters[region] = {}
-
-        st.markdown(f"### {region} Growth")
-
-        header_product_col, header_bau_col, header_dc_col = st.columns(
-            [1.8, 1, 1]
-        )
-
-        with header_product_col:
-            st.markdown("**Product**")
-
-        with header_bau_col:
-            st.markdown("**BAU %**")
-
-        with header_dc_col:
-            st.markdown("**DC %**")
-
-        for product in PRODUCTS:
-            product_col, bau_col, dc_col = st.columns(
-                [1.8, 1, 1]
-            )
-
-            with product_col:
-                st.write(product)
-
-            with bau_col:
-                bau_value = st.number_input(
-                    label=f"{region} {product} BAU %",
-                    min_value=0.0,
-                    max_value=100.0,
-                    value=float(
-                        st.session_state.growth_parameters[region][product]["BAU"]
-                    ),
-                    step=1.0,
-                    key=f"{clean_key(region)}_{clean_key(product)}_bau_form",
-                    label_visibility="collapsed",
-                )
-
-            with dc_col:
-                dc_value = st.number_input(
-                    label=f"{region} {product} DC %",
-                    min_value=0.0,
-                    max_value=100.0,
-                    value=float(
-                        st.session_state.growth_parameters[region][product]["DC"]
-                    ),
-                    step=1.0,
-                    key=f"{clean_key(region)}_{clean_key(product)}_dc_form",
-                    label_visibility="collapsed",
-                )
-
-            updated_growth_parameters[region][product] = {
-                "BAU": bau_value,
-                "DC": dc_value,
-            }
-
-        st.markdown("---")
+    edited_growth_df = st.data_editor(
+        growth_input_df,
+        hide_index=True,
+        use_container_width=True,
+        disabled=["Region", "Product"],
+        column_config={
+            "BAU %": st.column_config.NumberColumn(
+                "BAU %",
+                min_value=0.0,
+                max_value=100.0,
+                step=1.0,
+            ),
+            "DC %": st.column_config.NumberColumn(
+                "DC %",
+                min_value=0.0,
+                max_value=100.0,
+                step=1.0,
+            ),
+        },
+        key="growth_data_editor",
+    )
 
     st.subheader("BU Wise Attrition")
 
-    updated_attrition = {}
+    attrition_input_df = attrition_dict_to_df(
+        st.session_state.attrition_parameters
+    )
 
-    for product in PRODUCTS:
-        updated_attrition[product] = st.number_input(
-            f"{product} Attrition %",
-            min_value=0.0,
-            max_value=30.0,
-            value=float(st.session_state.attrition_parameters[product]),
-            step=0.5,
-            key=f"{clean_key(product)}_attrition_form",
-        )
+    edited_attrition_df = st.data_editor(
+        attrition_input_df,
+        hide_index=True,
+        use_container_width=True,
+        disabled=["Product"],
+        column_config={
+            "Attrition %": st.column_config.NumberColumn(
+                "Attrition %",
+                min_value=0.0,
+                max_value=30.0,
+                step=0.5,
+            ),
+        },
+        key="attrition_data_editor",
+    )
 
     st.subheader("Workforce Productivity")
 
@@ -483,8 +484,14 @@ with st.sidebar.form("planning_assumptions_form"):
 
 
 if apply_assumptions:
-    st.session_state.growth_parameters = updated_growth_parameters
-    st.session_state.attrition_parameters = updated_attrition
+    st.session_state.growth_parameters = growth_df_to_dict(
+        edited_growth_df
+    )
+
+    st.session_state.attrition_parameters = attrition_df_to_dict(
+        edited_attrition_df
+    )
+
     st.session_state.productive_hours = updated_productive_hours
     st.session_state.working_days = updated_working_days
     st.session_state.target_utilization = updated_target_utilization
