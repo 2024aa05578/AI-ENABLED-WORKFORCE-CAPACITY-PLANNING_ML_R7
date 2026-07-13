@@ -3,6 +3,7 @@ import math
 from io import StringIO
 
 import pandas as pd
+import plotly.express as px
 import streamlit as st
 
 from workforce_model import calculate_workforce
@@ -76,6 +77,10 @@ DEFAULT_ATTRITION = {
     "Industrial Automation": 8.0,
 }
 
+
+# =====================================================
+# HELPER FUNCTIONS
+# =====================================================
 
 def clean_key(text):
     return (
@@ -254,6 +259,78 @@ def validate_input_data(df):
         st.stop()
 
     return df
+
+
+def show_bar_chart_with_values(data, x_col, y_col, title, color_col=None):
+    if color_col is None:
+        color_col = x_col
+
+    fig = px.bar(
+        data,
+        x=x_col,
+        y=y_col,
+        color=color_col,
+        text=y_col,
+        title=title,
+        color_discrete_sequence=[
+            "#1F77B4",
+            "#FF7F0E",
+            "#2CA02C",
+            "#D62728",
+            "#9467BD",
+            "#8C564B",
+            "#E377C2",
+            "#7F7F7F",
+            "#BCBD22",
+            "#17BECF",
+        ],
+    )
+
+    fig.update_traces(
+        texttemplate="%{text:.1f}",
+        textposition="outside",
+        cliponaxis=False,
+    )
+
+    fig.update_layout(
+        height=430,
+        title_x=0.05,
+        showlegend=False,
+        margin=dict(
+            l=40,
+            r=30,
+            t=70,
+            b=90,
+        ),
+        xaxis_title="",
+        yaxis_title="Engineers",
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        font=dict(
+            size=12,
+            color="#243447",
+        ),
+    )
+
+    fig.update_xaxes(
+        fixedrange=True,
+        tickangle=-20,
+    )
+
+    fig.update_yaxes(
+        fixedrange=True,
+        rangemode="tozero",
+    )
+
+    st.plotly_chart(
+        fig,
+        use_container_width=True,
+        config={
+            "displayModeBar": False,
+            "scrollZoom": False,
+            "staticPlot": False,
+        },
+    )
 
 
 # =====================================================
@@ -512,26 +589,66 @@ st.subheader("Visual Dashboard")
 chart_col1, chart_col2 = st.columns(2)
 
 with chart_col1:
-    st.markdown("#### Next Year Required SE by Product")
-    product_required = result.groupby("Product")["Combined Required Engineers"].sum()
-    st.bar_chart(product_required)
+    product_required = (
+        result.groupby("Product")["Combined Required Engineers"]
+        .sum()
+        .reset_index()
+    )
+
+    show_bar_chart_with_values(
+        data=product_required,
+        x_col="Product",
+        y_col="Combined Required Engineers",
+        title="Next Year Required SE by Product",
+        color_col="Product",
+    )
 
 with chart_col2:
-    st.markdown("#### Next Year Required SE by Region")
-    region_required = result.groupby("Region")["Combined Required Engineers"].sum()
-    st.bar_chart(region_required)
+    region_required = (
+        result.groupby("Region")["Combined Required Engineers"]
+        .sum()
+        .reset_index()
+    )
+
+    show_bar_chart_with_values(
+        data=region_required,
+        x_col="Region",
+        y_col="Combined Required Engineers",
+        title="Next Year Required SE by Region",
+        color_col="Region",
+    )
 
 chart_col3, chart_col4 = st.columns(2)
 
 with chart_col3:
-    st.markdown("#### Additional Requirement by Product")
-    product_hiring = result.groupby("Product")["Combined Additional Required"].sum()
-    st.bar_chart(product_hiring)
+    product_hiring = (
+        result.groupby("Product")["Combined Additional Required"]
+        .sum()
+        .reset_index()
+    )
+
+    show_bar_chart_with_values(
+        data=product_hiring,
+        x_col="Product",
+        y_col="Combined Additional Required",
+        title="Additional Requirement by Product",
+        color_col="Product",
+    )
 
 with chart_col4:
-    st.markdown("#### Additional Requirement by Region")
-    region_hiring = result.groupby("Region")["Combined Additional Required"].sum()
-    st.bar_chart(region_hiring)
+    region_hiring = (
+        result.groupby("Region")["Combined Additional Required"]
+        .sum()
+        .reset_index()
+    )
+
+    show_bar_chart_with_values(
+        data=region_hiring,
+        x_col="Region",
+        y_col="Combined Additional Required",
+        title="Additional Requirement by Region",
+        color_col="Region",
+    )
 
 
 # =====================================================
