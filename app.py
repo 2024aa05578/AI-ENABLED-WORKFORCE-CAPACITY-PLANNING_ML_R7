@@ -204,7 +204,7 @@ DEFAULT_ATTRITION = {
     "Industrial Automation": 8.0,
 }
 
-APP_SCHEMA_VERSION = "v13_filters_baseline_colored_sidebar"
+APP_SCHEMA_VERSION = "v14_exec_summary_filters_colored_sidebar"
 
 
 # =====================================================
@@ -792,9 +792,6 @@ with filter_col1:
 
     else:
         selected_years = ["All"]
-        st.info(
-            "Year filter is not active because uploaded CSV does not contain a Year column."
-        )
 
 with filter_col2:
     available_regions = [
@@ -1016,8 +1013,9 @@ with chart_col4:
 # DETAIL TABS
 # =====================================================
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(
+tab0, tab1, tab2, tab3, tab4, tab5 = st.tabs(
     [
+        "Executive Summary",
         "Input Data",
         "Full Results",
         "BU Requirement Comparison",
@@ -1026,13 +1024,202 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs(
     ]
 )
 
+
+with tab0:
+    st.subheader("Executive Summary")
+
+    selected_year_text = (
+        ", ".join([str(year) for year in selected_years])
+        if selected_years
+        else "All"
+    )
+
+    selected_region_text = (
+        ", ".join(selected_regions)
+        if selected_regions
+        else "All"
+    )
+
+    summary_total_current = round(df["Current_SE"].sum(), 1)
+    summary_available = round(result["Available Engineers"].sum(), 1)
+    summary_bau_required = round(result["BAU Required Engineers"].sum(), 1)
+    summary_dc_additional = round(result["DC Incremental Engineers"].sum(), 1)
+    summary_next_year_required = round(result["Combined Required Engineers"].sum(), 1)
+    summary_additional_required = int(result["Combined Additional Required"].sum())
+
+    summary_col1, summary_col2, summary_col3 = st.columns(3)
+
+    with summary_col1:
+        st.metric("Existing 2026 SE", summary_total_current)
+
+    with summary_col2:
+        st.metric("Next Year Required SE", summary_next_year_required)
+
+    with summary_col3:
+        st.metric("Additional Required", summary_additional_required)
+
+    st.markdown("---")
+
+    st.markdown(
+        f"""
+        ### Planning View
+
+        The current dashboard is filtered for **Year: {selected_year_text}** and
+        **Region: {selected_region_text}**.
+
+        Based on the selected data, the current resource base is **{summary_total_current} SE**.
+        After applying attrition assumptions, the available resource is estimated at
+        **{summary_available} SE**.
+
+        The forecasted BAU requirement is **{summary_bau_required} SE**.
+        The Data Center / growth-driven incremental requirement is **{summary_dc_additional} SE**.
+        The combined next year requirement is **{summary_next_year_required} SE**.
+
+        Therefore, the estimated additional hiring requirement is
+        **{summary_additional_required} SE**.
+        """
+    )
+
+    st.markdown("---")
+
+    exec_col1, exec_col2 = st.columns(2)
+
+    with exec_col1:
+        st.markdown("### Product Level Requirement")
+
+        product_existing = (
+            df.groupby("Product")["Current_SE"]
+            .sum()
+            .reset_index()
+            .rename(columns={"Current_SE": "Existing 2026 SE"})
+        )
+
+        product_required_summary = (
+            result.groupby("Product")["Combined Required Engineers"]
+            .sum()
+            .reset_index()
+            .rename(columns={"Combined Required Engineers": "Next Year Required SE"})
+        )
+
+        product_hiring_summary = (
+            result.groupby("Product")["Combined Additional Required"]
+            .sum()
+            .reset_index()
+            .rename(columns={"Combined Additional Required": "Additional Required"})
+        )
+
+        product_summary = (
+            product_existing
+            .merge(product_required_summary, on="Product", how="outer")
+            .merge(product_hiring_summary, on="Product", how="outer")
+            .fillna(0)
+        )
+
+        product_summary["Existing 2026 SE"] = product_summary[
+            "Existing 2026 SE"
+        ].round(1)
+
+        product_summary["Next Year Required SE"] = product_summary[
+            "Next Year Required SE"
+        ].round(1)
+
+        product_summary["Additional Required"] = product_summary[
+            "Additional Required"
+        ].astype(int)
+
+        st.dataframe(
+            product_summary,
+            use_container_width=True,
+        )
+
+    with exec_col2:
+        st.markdown("### Region Level Requirement")
+
+        region_existing = (
+            df.groupby("Region")["Current_SE"]
+            .sum()
+            .reset_index()
+            .rename(columns={"Current_SE": "Existing 2026 SE"})
+        )
+
+        region_required_summary = (
+            result.groupby("Region")["Combined Required Engineers"]
+            .sum()
+            .reset_index()
+            .rename(columns={"Combined Required Engineers": "Next Year Required SE"})
+        )
+
+        region_hiring_summary = (
+            result.groupby("Region")["Combined Additional Required"]
+            .sum()
+            .reset_index()
+            .rename(columns={"Combined Additional Required": "Additional Required"})
+        )
+
+        region_summary = (
+            region_existing
+            .merge(region_required_summary, on="Region", how="outer")
+            .merge(region_hiring_summary, on="Region", how="outer")
+            .fillna(0)
+        )
+
+        region_summary["Existing 2026 SE"] = region_summary[
+            "Existing 2026 SE"
+        ].round(1)
+
+        region_summary["Next Year Required SE"] = region_summary[
+            "Next Year Required SE"
+        ].round(1)
+
+        region_summary["Additional Required"] = region_summary[
+            "Additional Required"
+        ].astype(int)
+
+        st.dataframe(
+            region_summary,
+            use_container_width=True,
+        )
+
+    st.markdown("---")
+
+    if summary_additional_required > 0:
+        top_product = (
+            product_summary.sort_values(
+                by="Additional Required",
+                ascending=False,
+            )
+            .iloc[0]
+        )
+
+        top_region = (
+            region_summary.sort_values(
+                by="Additional Required",
+                ascending=False,
+            )
+            .iloc[0]
+        )
+
+        st.warning(
+            f"Highest additional requirement is in **{top_product['Product']}** "
+            f"with **{int(top_product['Additional Required'])} SE**, and region-wise "
+            f"highest requirement is in **{top_region['Region']}** with "
+            f"**{int(top_region['Additional Required'])} SE**."
+        )
+    else:
+        st.success(
+            "No additional hiring requirement is currently projected for the selected filters."
+        )
+
+
 with tab1:
     st.subheader("Uploaded Input Data")
     st.dataframe(df, use_container_width=True)
 
+
 with tab2:
     st.subheader("Workforce Planning Results")
     st.dataframe(result, use_container_width=True)
+
 
 with tab3:
     st.subheader("BU Requirement Comparison")
@@ -1050,6 +1237,7 @@ with tab3:
         bu_comparison,
         use_container_width=True,
     )
+
 
 with tab4:
     st.subheader("DC Addition Requirement Table")
@@ -1096,6 +1284,7 @@ with tab4:
         add_total_row_and_column(hiring_table).round(1),
         use_container_width=True,
     )
+
 
 with tab5:
     st.subheader("Download Output")
